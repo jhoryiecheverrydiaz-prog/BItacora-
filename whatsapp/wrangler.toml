@@ -1,0 +1,11 @@
+name = "bitacora-whatsapp"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Las claves NO van aquí: se ponen como secretos en Cloudflare
+# (Worker → Configuración → Variables y secretos). Ver README.md.
+[vars]
+TZ_NAME = "America/Bogota"
+GRAPH_VERSION = "v21.0"
+GROQ_MODEL = "whisper-large-v3-turbo"

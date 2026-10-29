@@ -1,0 +1,14 @@
+{
+  "name": "bitacora-whatsapp",
+  "private": true,
+  "type": "module",
+  "description": "Puente WhatsApp → Claude → Notion para la Bitácora (Cloudflare Worker).",
+  "scripts": {
+    "test": "node --test pruebas/logica.prueba.js pruebas/worker.prueba.js",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
+    "zod": "4.6.7"
+  }
+}

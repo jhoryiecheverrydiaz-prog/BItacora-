@@ -36,6 +36,12 @@ PWA de hábitos mensual (libreta de 2 páginas) para iPhone. HTML + CSS + JS van
 - Cada versión publicada se anota en "Mejoras de la app". Nada de Notion (enlaces, datos) entra al repo.
 - Camino B (sincronización con un Worker y la clave como secreto) queda para cuando la estructura esté probada.
 
+## WhatsApp (`whatsapp/`, Cloudflare Worker aparte de la PWA)
+- Audio/texto por WhatsApp → Groq Whisper → Claude (`claude-opus-5-5`, salida estructurada con zod) → Notion "Registro diario" → respuesta con máx. 3 preguntas.
+- `src/logic.js` lógica pura (fechas en `TZ_NAME`, merge del día, XP igual al panel, propiedades de Notion, firma de Meta); `src/index.js` red.
+- Claves e ids de Notion solo como secretos de Cloudflare. Nunca en el repo.
+- Pruebas: `cd whatsapp && npm test` (archivos `pruebas/*.prueba.js`, no los toma el `node --test` de la raíz). Guía de cuentas en `whatsapp/README.md`.
+
 ## Comandos
 - Tests: `node --test` (Node ≥ 18).
 - Servir local: `python -m http.server` desde la carpeta padre y abrir `http://localhost:8000/BItacora-/`.
