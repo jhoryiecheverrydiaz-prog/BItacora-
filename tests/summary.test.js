@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { starter } from './fixtures.js';
 import { toggleCheck, setNote, applyClose } from '../js/core/months.js';
-import { weeklySummary, monthlySummary, weeklyRange } from '../js/core/summary.js';
+import { weeklySummary, monthlySummary, weeklyRange, dailySummary } from '../js/core/summary.js';
 
 function filled() {
   const st = starter();
@@ -53,4 +53,21 @@ test('resumen mensual incluye decisiones y próximo mes', () => {
   assert.match(txt, /Mejor día: 28 \(3\) · Día más flojo: —/);
   assert.match(txt, /Próximo mes · Mantra: "Nuevo" · Objetivos: A/);
   assert.match(txt, /Si tienes Notion conectado: regístralo en la página "Bitácora · Personal"/);
+});
+
+test('reporte del día con estados y línea', () => {
+  const lines = dailySummary(filled(), '2026-10-29').split('\n');
+  assert.equal(lines[0], '[BITÁCORA · REPORTE DEL DÍA · 2026-10-29 · jueves]');
+  assert.equal(lines[1], 'Mes 2026-10 (arranque) · Mantra: "Poco y siempre"');
+  assert.equal(lines[2], 'Hábitos cumplidos: 2/3');
+  assert.deepEqual(lines.slice(3, 6), ['- GYM Gimnasio: sin marcar', '- MED Meditar: mínimo', '- AGUA Agua: completo']);
+  assert.equal(lines[6], 'Línea del día: Reunión larga');
+  assert.equal(lines[7], '---');
+  assert.match(lines[8], /^Instrucción para Claude: Toma nota de este día/);
+  assert.match(lines[9], /^Si tienes Notion conectado/);
+});
+
+test('reporte del día fuera de la bitácora falla', () => {
+  assert.throws(() => dailySummary(filled(), '2026-10-27'), /no está en tu bitácora/);
+  assert.throws(() => dailySummary(filled(), '2027-01-01'), /no está en tu bitácora/);
 });

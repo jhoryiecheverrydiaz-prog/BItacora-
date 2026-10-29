@@ -2,7 +2,8 @@ import { h, clear, modal, confirmModal, toast, pickTextFile, shareText, field } 
 import { todayKey, monthKey, monthTitle, WEEKDAYS, formatShort } from '../core/dates.js';
 import { editHabitText, emergencyChange, emptyState, MAX_HABITS, MAX_SHORT, newId } from '../core/months.js';
 import { validateBackup, describeReplace, parseClaudeImport, describeProposal } from '../core/importer.js';
-import { weeklySummary } from '../core/summary.js';
+import { weeklySummary, dailySummary } from '../core/summary.js';
+import { helpButton, showHelp } from './help.js';
 import { LINE_MODES, reminderBlock, habitForm } from './onboarding.js';
 import * as store from '../store.js';
 
@@ -136,20 +137,30 @@ export function renderSettings(root, ctx) {
     const pi = state.meta.pendingImport;
     const persist = state.meta.persistGranted;
     page.append(...[
-      h('h1', {}, 'Ajustes'),
+      h('div', { class: 'head-row' }, h('h1', {}, 'Ajustes'), helpButton('ajustes')),
+
+      h('div', { class: 'section' }, h('h2', {}, 'Reportar a Claude'),
+        h('p', { class: 'muted small' }, 'Genera un texto y pégalo en el chat de Claude. Claude lo analiza y lo registra en tu Notion. En Hoy tienes los mismos botones.'),
+        h('div', { class: 'stack' },
+          h('button', { class: 'btn primary block', type: 'button', onClick: () => { try { shareText(dailySummary(state, today), 'Reporte del día'); } catch (e) { toast(cap(e.message)); } } }, 'Reporte de hoy'),
+          h('button', { class: 'btn block', type: 'button', onClick: () => { try { shareText(weeklySummary(state, today), 'Resumen semanal'); } catch (e) { toast(cap(e.message)); } } }, 'Resumen semanal'))),
+
+      h('div', { class: 'section' }, h('h2', {}, 'Guías'),
+        h('div', { class: 'stack' },
+          h('button', { class: 'btn block', type: 'button', onClick: () => showHelp('hoy') }, 'Cómo usar Hoy'),
+          h('button', { class: 'btn block', type: 'button', onClick: () => showHelp('mes') }, 'Cómo usar Mes'))),
 
       h('div', { class: 'section' }, h('h2', {}, 'Perfil'),
         field('Nombre', h('input', { class: 'input', value: prof.name, maxlength: 40, onInput: set((v) => { prof.name = v; }) })),
-        field('Ancla', h('input', { class: 'input', value: prof.anchor, maxlength: 60, onInput: set((v) => { prof.anchor = v; }) })),
+        field('Momento del registro', h('input', { class: 'input', value: prof.anchor, maxlength: 60, onInput: set((v) => { prof.anchor = v; }) }), 'Lo que ya haces cada día y tras lo cual registras. Ej.: después de hacer la cama.'),
         field('Hora aproximada', h('input', { class: 'input', type: 'time', value: prof.reminderTime, onInput: set((v) => { prof.reminderTime = v; }) })),
         field('Línea del día', h('select', { class: 'input', onChange: set((v) => { prof.lineMode = v; }) },
           Object.entries(LINE_MODES).map(([k, v]) => h('option', { value: k, selected: prof.lineMode === k }, v.label)))),
         field('Resumen semanal para', h('select', { class: 'input', onChange: (e) => { acc.to = e.target.value; ctx.save(); draw(); } },
           h('option', { value: 'claude', selected: acc.to === 'claude' }, 'Claude'), h('option', { value: 'persona', selected: acc.to === 'persona' }, 'Una persona'))),
         acc.to === 'persona' && field('¿Quién?', h('input', { class: 'input', value: acc.personName, maxlength: 40, onInput: set((v) => { acc.personName = v; }) })),
-        field('Día del resumen', h('select', { class: 'input', onChange: set((v) => { acc.weekday = Number(v); }) },
+        field('Día del resumen semanal', h('select', { class: 'input', onChange: set((v) => { acc.weekday = Number(v); }) },
           [1, 2, 3, 4, 5, 6, 0].map((w) => h('option', { value: w, selected: acc.weekday === w }, cap(WEEKDAYS[w]))))),
-        h('button', { class: 'btn block', type: 'button', onClick: () => { try { shareText(weeklySummary(state, today), 'Resumen semanal'); } catch (e) { toast(e.message); } } }, 'Generar resumen semanal ahora'),
       ),
 
       month && h('div', { class: 'section' }, h('h2', {}, `Hábitos de ${monthTitle(mk)}`),
@@ -162,6 +173,7 @@ export function renderSettings(root, ctx) {
       ),
 
       h('div', { class: 'section' }, h('h2', {}, 'Datos'),
+        h('p', { class: 'muted small' }, 'Tus datos viven solo en este iPhone. Exporta un respaldo y guárdalo en Archivos o iCloud.'),
         h('p', { class: 'muted small' }, state.meta.lastBackupAt ? `Último respaldo: ${formatShort(state.meta.lastBackupAt.slice(0, 10))}.` : 'Aún no hay respaldo exportado.'),
         h('div', { class: 'stack' },
           h('button', { class: 'btn primary block', type: 'button', onClick: async () => { if (await ctx.exportBackup()) { toast('Respaldo listo'); draw(); } } }, 'Exportar respaldo'),
@@ -169,6 +181,7 @@ export function renderSettings(root, ctx) {
           h('button', { class: 'btn block', type: 'button', onClick: restoreInternal }, 'Respaldos internos'),
           h('button', { class: 'btn block', type: 'button', onClick: importClaude }, 'Importar ajustes de Claude'),
         ),
+        h('p', { class: 'muted small', style: { marginTop: '8px' } }, 'Ajustes de Claude: cuando Claude te devuelva un bloque JSON "bitacora_import", pégalo aquí. Se aplica en el próximo cierre de mes.'),
         pi && h('div', { class: 'note', style: { marginTop: '10px' } },
           h('p', {}, `Propuesta de Claude guardada para el próximo cierre (${describeProposal(pi.proposal, month?.habits || []).length} cambios).`),
           h('button', { class: 'linklike small', type: 'button', onClick: () => { state.meta.pendingImport = null; ctx.save(); draw(); } }, 'Descartar propuesta')),

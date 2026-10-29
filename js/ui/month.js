@@ -2,6 +2,7 @@ import { h, svg, clear, modal, toast } from './dom.js';
 import { monthKey, monthTitle, monthLength, dayKeyOf, mondayIndex, WEEK_LETTERS, formatLong } from '../core/dates.js';
 import { monthStats, lastElapsedDay } from '../core/stats.js';
 import { toggleCheck, setNote, isDone } from '../core/months.js';
+import { helpButton, guideCard } from './help.js';
 
 const pctText = (p) => (p === null || p === undefined ? '—' : `${Math.round(p * 100)} %`);
 const STATE_LABEL = { full: 'completo', min: 'mínimo' };
@@ -62,7 +63,9 @@ export function renderMonth(root, ctx) {
       h('select', { class: 'input', 'aria-label': 'Mes', onChange: (e) => { viewKey = e.target.value; ctx.render(); } },
         keys.map((k) => h('option', { value: k, selected: k === viewKey }, monthTitle(k)))),
       closed && h('span', { class: 'readonly-tag' }, 'Cerrado'),
-      dots),
+      dots,
+      helpButton('mes')),
+    h('div', { class: 'month-guide' }, guideCard('mes', 'Dos páginas: la bitácora (una línea por día) y los hábitos. Desliza de lado para pasar de una a otra.', () => ctx.render())),
     sheets,
   );
 
@@ -93,6 +96,7 @@ export function renderMonth(root, ctx) {
     logSheet.append(h('div', { class: 'sheet-inner' },
       h('h1', { class: 'sheet-title' }, monthTitle(month.key)),
       h('p', { class: 'mantra' }, month.mantra ? `Mantra: ${month.mantra}` : 'Sin mantra'),
+      h('p', { class: 'muted small' }, 'Toca un día para escribir su línea. Desliza → para ver los hábitos.'),
       h('ul', { class: 'log-list' }, items)));
   }
 
@@ -140,15 +144,21 @@ export function renderMonth(root, ctx) {
       h('p', { class: 'mantra' }, 'Hábitos cumplidos por día'),
       chartSvg(month, st, today),
       srTable(st),
+      h('p', { class: 'muted small' }, 'Arriba: cuántos hábitos cumpliste cada día. Abajo: toca una casilla para marcarla.'),
       h('div', { class: 'grid-wrap' }, h('table', { class: 'hgrid' }, h('thead', {}, head), h('tbody', {}, rows))),
+      h('p', { class: 'legend' },
+        h('span', { class: 'box full', 'data-c': 'c1', 'aria-hidden': 'true' }), ' completo ',
+        h('span', { class: 'box min', 'data-c': 'c1', 'aria-hidden': 'true' }), ' mínimo · # = cumplidos ese día'),
       h('h2', {}, 'Otros objetivos del mes'),
+      month.goals.length > 0 && !closed && h('p', { class: 'muted small' }, 'Toca el cuadro: pendiente → ✓ cumplido → ✕ no cumplido.'),
       month.goals.length
         ? h('ul', { class: 'goals' }, month.goals.map((g) => h('li', { class: 'goal' },
           h('button', { class: 'gstate', type: 'button', disabled: closed, 'aria-label': `${g.text}: ${goalLabel(g)}. Tocar para cambiar.`, onClick: () => cycleGoal(g) }, goalMark(g)),
           h('span', { class: 'gtext' }, g.text))))
         : h('p', { class: 'muted small' }, 'Sin objetivos este mes.'),
       h('div', { class: 'foot-stats' },
-        h('div', {}, `Días registrados: ${st.daysRegistered}/${st.daysElapsed} · ${pctText(st.pctRegistered)}`),
+        h('div', {}, `Días registrados: ${st.daysRegistered} de ${st.daysElapsed} · ${pctText(st.pctRegistered)}`),
+        h('div', { class: 'small' }, 'Por hábito (cumplidos de los esperados hasta hoy):'),
         h('ul', {}, month.habits.map((hb) => {
           const s = st.perHabit[hb.id];
           return h('li', {}, h('b', { 'data-c': hb.color, style: { color: 'var(--hc)' } }, hb.short), ` ${s.done}/${s.expected} · ${pctText(s.pct)}`);
