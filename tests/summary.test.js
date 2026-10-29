@@ -32,6 +32,8 @@ test('resumen semanal con el formato §8.1', () => {
   assert.equal(lines[11], 'Objetivos del mes: [ ] Renovar pasaporte');
   assert.equal(lines[12], '---');
   assert.match(lines[13], /^Instrucción para Claude: Analiza esto en máx\. 6 líneas/);
+  assert.match(lines[14], /^Si tienes Notion conectado: regístralo en la página "Bitácora · Personal"/);
+  assert.match(lines[15], /^Formato JSON:/);
 });
 
 test('el lunes resume la semana que terminó', () => {
@@ -50,4 +52,5 @@ test('resumen mensual incluye decisiones y próximo mes', () => {
   assert.match(txt, /Puntaje diario: 28:3 29:2 30:3 31:3/);
   assert.match(txt, /Mejor día: 28 \(3\) · Día más flojo: —/);
   assert.match(txt, /Próximo mes · Mantra: "Nuevo" · Objetivos: A/);
+  assert.match(txt, /Si tienes Notion conectado: regístralo en la página "Bitácora · Personal"/);
 });

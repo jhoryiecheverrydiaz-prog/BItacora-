@@ -37,6 +37,10 @@ Si borras el ícono, **se borran los datos**.
 - El día de tu rendición de cuentas, **Hoy** muestra el botón **Enviar resumen semanal**. Pégalo en un chat con Claude.
 - Si Claude te devuelve un JSON `bitacora_import`, pégalo en **Ajustes → Importar ajustes de Claude**. Queda como propuesta prellenada para el próximo cierre; nunca cambia el mes en curso.
 
+## Registro en Notion
+
+El resumen semanal y el mensual traen una línea para Claude: si tiene Notion conectado, lo registra en tu página privada **Bitácora · Personal** (Revisiones, Hábitos, Experimentos). La app no se conecta sola con Notion; Claude hace de puente.
+
 ## Recordatorio diario
 
 Crea un recordatorio repetido en la app **Recordatorios**. Las instrucciones exactas están en Ajustes. No uses Atajos con "Abrir URL", porque abre Safari y Safari no ve tus datos.

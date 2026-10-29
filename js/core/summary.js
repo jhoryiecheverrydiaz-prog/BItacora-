@@ -7,6 +7,7 @@ export const DECISION_LABEL = { keep: 'mantener', up: 'subir nivel', down: 'baja
 const FORMAT_LINE = 'Formato JSON: {"bitacora_import":1,"applyTo":"next_month","mantra":"…","habits":[{"keepId":"<etiqueta o id>","min":"nuevo mínimo"},{"name":"…","short":"≤6","min":"…","target":{"type":"daily"}}],"goals":["…"]}';
 
 const WEEKLY_INSTRUCTION = 'Instrucción para Claude: Analiza esto en máx. 6 líneas, sin frases motivacionales. 1) Qué patrón real ves (con datos). 2) UN ajuste concreto para la próxima semana. 3) Si sugiero cambiar un hábito, devuélvelo como JSON "bitacora_import" para el próximo cierre.';
+const NOTION_LINE = 'Si tienes Notion conectado: regístralo en la página "Bitácora · Personal" (Revisiones, y actualiza Hábitos y Experimentos). Si no, ignora esta línea.';
 const MONTHLY_INSTRUCTION = 'Instrucción para Claude: Analiza este mes en máx. 8 líneas, sin frases motivacionales. 1) Qué patrón real ves (con datos). 2) Si las decisiones del cierre tienen sentido y UN ajuste concreto. 3) Si sugiero cambiar un hábito, devuélvelo como JSON "bitacora_import" para el próximo cierre.';
 
 const freq = (h) => (h.target?.type === 'weekly' ? `${h.target.count}/sem` : 'diario');
@@ -59,6 +60,7 @@ export function weeklySummary(state, today) {
     goalsLine(m),
     '---',
     WEEKLY_INSTRUCTION,
+    NOTION_LINE,
     FORMAT_LINE,
   ];
   return lines.join('\n');
@@ -93,6 +95,6 @@ export function monthlySummary(state, key, today, decisions = null, next = null)
     const goals = (next.goals || []).filter(Boolean);
     lines.push(`Próximo mes · Mantra: ${next.mantra ? `"${next.mantra}"` : '—'} · Objetivos: ${goals.length ? goals.join(' · ') : '—'}`);
   }
-  lines.push('---', MONTHLY_INSTRUCTION, FORMAT_LINE);
+  lines.push('---', MONTHLY_INSTRUCTION, NOTION_LINE, FORMAT_LINE);
   return lines.join('\n');
 }

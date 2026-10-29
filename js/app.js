@@ -10,7 +10,7 @@ import { renderMonth } from './ui/month.js';
 import { renderReview } from './ui/review.js';
 import { renderSettings } from './ui/settings.js';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },

@@ -1,5 +1,5 @@
 // Subir CACHE y APP_VERSION (js/app.js) en cada deploy.
-const CACHE = 'bitacora-v1.0.0';
+const CACHE = 'bitacora-v1.1.0';
 const SHELL = [
   './',
   'index.html',

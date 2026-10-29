@@ -30,6 +30,12 @@ PWA de hábitos mensual (libreta de 2 páginas) para iPhone. HTML + CSS + JS van
 ## Modelo (schemaVersion 1)
 `{ schemaVersion, profile, months: { "YYYY-MM": { key, startDay, isStarter, mantra, goals[], habits[], days{ "YYYY-MM-DD": { note, checks{id: full|min} } }, changeLog[], review, provisional? } }, meta: { lastOpenedDate, lastBackupAt, lastWeeklySentAt, persistGranted, closeSnoozedOn, onboardingDraft, pendingImport } }`
 
+## Notion (camino A: Claude como puente)
+- La app no llama a Notion: la clave quedaría pública y Notion bloquea llamadas desde el navegador.
+- Los resúmenes (`summary.js`, `NOTION_LINE`) piden a Claude registrarlos en la página privada "Bitácora · Personal" de Jhoryi: bases Hábitos, Revisiones, Experimentos y Mejoras de la app.
+- Cada versión publicada se anota en "Mejoras de la app". Nada de Notion (enlaces, datos) entra al repo.
+- Camino B (sincronización con un Worker y la clave como secreto) queda para cuando la estructura esté probada.
+
 ## Comandos
 - Tests: `node --test` (Node ≥ 18).
 - Servir local: `python -m http.server` desde la carpeta padre y abrir `http://localhost:8000/BItacora-/`.
