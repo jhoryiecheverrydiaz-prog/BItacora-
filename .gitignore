@@ -1,0 +1,5 @@
+CONTEXTO_PRIVADO.md
+*.local.*
+node_modules/
+.DS_Store
+Thumbs.db

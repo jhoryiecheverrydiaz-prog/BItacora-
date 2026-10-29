@@ -1,6 +1,6 @@
 # Bitácora — memoria del proyecto
 
-PWA de hábitos mensual (libreta de 2 páginas) para iPhone. HTML + CSS + JS vanilla con ES modules, sin build ni dependencias. Se sirve tal cual en GitHub Pages bajo `/bitacora/`. Datos solo en IndexedDB del dispositivo.
+PWA de hábitos mensual (libreta de 2 páginas) para iPhone. HTML + CSS + JS vanilla con ES modules, sin build ni dependencias. Se sirve tal cual en GitHub Pages bajo `/bitacora-/`. Datos solo en IndexedDB del dispositivo.
 
 ## Reglas no negociables
 - **Fechas locales siempre**: usar `js/core/dates.js` (`todayKey`, `addDays`…). Prohibido `toISOString()` para claves de fecha.
@@ -32,6 +32,6 @@ PWA de hábitos mensual (libreta de 2 páginas) para iPhone. HTML + CSS + JS van
 
 ## Comandos
 - Tests: `node --test` (Node ≥ 18).
-- Servir local: `python -m http.server` desde la carpeta padre y abrir `http://localhost:8000/bitacora/`.
+- Servir local: `python -m http.server` desde la carpeta padre y abrir `http://localhost:8000/bitacora-/`.
 - Debug: en consola `localStorage.debug = "1"` y abrir `?fecha=2026-11-01`.
 - Deploy: subir versión en `sw.js` y `js/app.js` → commit → `git push` (Pages publica `main` /).

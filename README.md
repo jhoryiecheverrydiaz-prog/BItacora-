@@ -7,7 +7,7 @@ Bitácora mensual de hábitos en dos páginas, como una libreta cuadriculada:
 
 Es una web app que se instala en el iPhone. Funciona sin internet y los datos se quedan en el teléfono.
 
-**App:** https://jhoryiecheverrydiaz-prog.github.io/bitacora/
+**App:** https://jhoryiecheverrydiaz-prog.github.io/bitacora-/
 
 ## Instalar en el iPhone
 
@@ -55,7 +55,7 @@ node --test
 python -m http.server 8000
 ```
 
-Corre el servidor desde la carpeta padre y abre `http://localhost:8000/bitacora/`.
+Corre el servidor desde la carpeta padre y abre `http://localhost:8000/bitacora-/`.
 
 - **Fecha simulada:** en la consola, `localStorage.debug = "1"`, y luego abre `?fecha=2026-11-01`.
 - **Deploy:** sube la versión en `sw.js` (`CACHE`) y en `js/app.js` (`APP_VERSION`), haz commit y push.
