@@ -15,6 +15,28 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="css/app.css">
+  <!-- Precarga de módulos: evita la cascada de imports en la primera carga -->
+  <link rel="modulepreload" href="js/app.js">
+  <link rel="modulepreload" href="js/store.js">
+  <link rel="modulepreload" href="js/core/dates.js">
+  <link rel="modulepreload" href="js/core/importer.js">
+  <link rel="modulepreload" href="js/core/game.js">
+  <link rel="modulepreload" href="js/core/migrate.js">
+  <link rel="modulepreload" href="js/core/months.js">
+  <link rel="modulepreload" href="js/core/plan.js">
+  <link rel="modulepreload" href="js/core/sheets.js">
+  <link rel="modulepreload" href="js/core/stats.js">
+  <link rel="modulepreload" href="js/core/summary.js">
+  <link rel="modulepreload" href="js/core/years.js">
+  <link rel="modulepreload" href="js/ui/dom.js">
+  <link rel="modulepreload" href="js/ui/install.js">
+  <link rel="modulepreload" href="js/ui/month.js">
+  <link rel="modulepreload" href="js/ui/onboarding.js">
+  <link rel="modulepreload" href="js/ui/review.js">
+  <link rel="modulepreload" href="js/ui/settings.js">
+  <link rel="modulepreload" href="js/ui/system.js">
+  <link rel="modulepreload" href="js/ui/today.js">
+  <link rel="modulepreload" href="js/ui/year.js">
 </head>
 <body>
   <main id="view" tabindex="-1"></main>
@@ -30,6 +52,10 @@
     <a href="#ano" data-tab="ano">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M10 20V6M15 20v-7M20 20V4"/></svg>
       <span>Año</span>
+    </a>
+    <a href="#sistema" data-tab="sistema" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>
+      <span>Sistema</span>
     </a>
     <a href="#ajustes" data-tab="ajustes">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>

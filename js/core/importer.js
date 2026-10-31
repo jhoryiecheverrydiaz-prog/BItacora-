@@ -77,6 +77,8 @@ export function validateBackup(input) {
   if (errors.length) return { ok: false, errors };
   for (const m of Object.values(s.months)) { m.changeLog ||= []; m.review ??= null; }
   s.meta = { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null, ...s.meta };
+  s.meta.game = { enabled: false, seen: null, ...(isObj(s.meta.game) ? s.meta.game : {}) };
+  s.meta.game.enabled = s.meta.game.enabled === true;
   return { ok: true, errors: [], state: s };
 }
 

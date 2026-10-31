@@ -1,5 +1,5 @@
 // Subir CACHE y APP_VERSION (js/app.js) en cada deploy.
-const CACHE = 'bitacora-v2.0.0';
+const CACHE = 'bitacora-v2.1.0';
 const SHELL = [
   './',
   'index.html',
@@ -21,6 +21,7 @@ const SHELL = [
   'js/core/years.js',
   'js/core/sheets.js',
   'js/core/plan.js',
+  'js/core/game.js',
   'js/ui/dom.js',
   'js/ui/install.js',
   'js/ui/onboarding.js',
@@ -29,6 +30,7 @@ const SHELL = [
   'js/ui/review.js',
   'js/ui/settings.js',
   'js/ui/year.js',
+  'js/ui/system.js',
 ];
 
 self.addEventListener('install', (e) => {

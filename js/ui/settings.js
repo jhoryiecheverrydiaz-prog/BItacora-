@@ -2,6 +2,7 @@ import { h, clear, modal, confirmModal, toast, pickTextFile, pickFiles, shareTex
 import { todayKey, monthKey, monthTitle, WEEKDAYS, formatShort } from '../core/dates.js';
 import { parseCsv, readXlsx, planImport, applyImport, defaultSelection, describePlanMonth, YEAR_SOURCE_LABEL } from '../core/sheets.js';
 import { areaLabel, areaById } from '../core/years.js';
+import { gameStats, seenFrom } from '../core/game.js';
 import { editHabitText, emergencyChange, emptyState, MAX_HABITS, MAX_SHORT, newId } from '../core/months.js';
 import { validateBackup, describeReplace, parseClaudeImport, describeProposal } from '../core/importer.js';
 import { weeklySummary } from '../core/summary.js';
@@ -275,6 +276,16 @@ export function renderSettings(root, ctx) {
         h('p', { class: 'muted small', style: { marginTop: '10px' } },
           persist === true ? 'Almacenamiento persistente: concedido.' : persist === false ? 'Almacenamiento persistente: no concedido. Exporta respaldos seguido.' : 'Almacenamiento persistente: sin confirmar.'),
       ),
+
+      h('div', { class: 'section' }, h('h2', {}, 'Sistema (modo juego)'),
+        h('p', { class: 'muted small' }, 'Capa opcional inspirada en Solo Leveling: niveles, rango de cazador de E a S, misión diaria, jefe semanal, estadísticas por área y títulos. Todo sale de tu registro; no cambia cómo registras.'),
+        h('label', { class: 'check-line' }, h('input', { type: 'checkbox', checked: !!state.meta.game?.enabled, onChange: (e) => {
+          state.meta.game = { ...(state.meta.game || {}), enabled: e.target.checked };
+          if (e.target.checked) state.meta.game.seen = seenFrom(gameStats(state, today));
+          ctx.save();
+          ctx.render();
+        } }), h('span', {}, 'Activar el Sistema')),
+        state.meta.game?.enabled && h('button', { class: 'linklike small', type: 'button', onClick: () => ctx.go('sistema') }, 'Abrir el Sistema')),
 
       h('div', { class: 'section' }, h('h2', {}, 'Google Sheets'),
         h('p', { class: 'muted small' }, 'Trae tu tracker de Sheets: meses, días activos, notas, metas por área y plan de hábitos. En Sheets: Archivo → Descargar → Microsoft Excel (.xlsx). También sirven pestañas sueltas en CSV.'),

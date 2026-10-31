@@ -27,8 +27,23 @@ Es una web app que se instala en el iPhone. Funciona sin internet y los datos se
 ## Año y metas por área
 
 - **Año:** cumplimiento de cada mes, metas del año por área de vida (Fitness, Finanzas, Aventura, Superación personal, Relaciones, Trabajo; se pueden editar) y un plan de hábitos por área (diarios, semanales, mensuales). En el cierre de mes, el plan aparece como opciones para agregar.
+- **Año** también muestra un mapa de calor de todos los días.
+- **Fuerza del hábito** (en Mes → Cada hábito): media de las últimas semanas; un día fallado baja poco.
 - **Mes** tiene 3 páginas: **Bitácora**, **Hábitos** (cumplimiento del mes, % por semana, días al 100 % 🏆, rachas y nota de cada hábito) y **Plan** (metas del mes, objetivos semanales, eventos importantes y facturas con total pagado/pendiente).
 - **Día libre:** en Hoy, "Marcar como día libre". Ese día no cuenta en el %.
+
+## Sistema (modo juego, opcional)
+
+Inspirado en Solo Leveling. Se activa en **Ajustes → Sistema**. Aparece la pestaña **Sistema** con:
+
+- **Nivel y rango de cazador** (E → D → C → B → A → S). El rango S llega con alrededor de un año constante.
+- **Misión diaria:** tus hábitos de hoy con su recompensa. Completar todos da un bono.
+- **Misión de recuperación:** si ayer quedó en blanco, registrar hoy da XP extra. Volver pesa más que no fallar.
+- **Jefe de la semana:** terminar la semana con 80 % o más.
+- **Estadísticas** (Fuerza, Agilidad, Vitalidad, Inteligencia, Percepción) que suben según el área de cada hábito.
+- **Títulos** que se desbloquean.
+
+El XP se calcula desde tu registro con las mismas reglas del panel de WhatsApp. Nunca resta: un día malo no quita nada y los días libres no cuentan.
 
 ## Importar desde Google Sheets
 

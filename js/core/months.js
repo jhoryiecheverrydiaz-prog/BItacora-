@@ -1,6 +1,6 @@
 import { todayKey, monthKey, parseKey, addDays, addMonths, diffDays, weekdayOf, isDateKey } from './dates.js';
 import { isBlank, isDone, isOff } from './stats.js';
-import { CURRENT_VERSION, DEFAULT_AREAS } from './migrate.js';
+import { CURRENT_VERSION, DEFAULT_AREAS, DEFAULT_GAME } from './migrate.js';
 
 export const MAX_HABITS = 5;
 export const RECOMMENDED_START = 3;
@@ -35,7 +35,7 @@ export function emptyState() {
     areas: structuredClone(DEFAULT_AREAS),
     years: {},
     months: {},
-    meta: { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null },
+    meta: { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null, game: { ...DEFAULT_GAME } },
   };
 }
 

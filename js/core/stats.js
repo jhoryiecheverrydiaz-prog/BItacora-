@@ -185,3 +185,51 @@ export function suggestDecision(pct) {
   if (pct < 0.5) return 'down';
   return 'keep';
 }
+
+// Fuerza del hábito (como Loop Habit Tracker): media exponencial que cruza meses (vida media ≈ 13 días).
+// Diarios: cada día vale 1 o 0. Semanales/mensuales: el día vale cuánto de la meta se lleva en la
+// ventana móvil (7 o 30 días), así los días "que no tocan" no castigan. Días libres no cuentan.
+// Devuelve 0..1 (null si el hábito aún no tiene días).
+export function habitStrength(state, habit, today) {
+  const t = habit.target;
+  const win = t?.type === 'weekly' ? 7 : t?.type === 'monthly' ? 30 : 1;
+  const need = t?.type === 'weekly' || t?.type === 'monthly' ? t.count : 1;
+  const mult = Math.pow(0.5, 1 / 13);
+  const recent = []; // hechos de los últimos `win` días (1/0)
+  let score = 0, seen = 0;
+  for (const key of Object.keys(state.months).sort()) {
+    if (key > monthKey(today)) break;
+    const m = state.months[key];
+    if (!m.habits.some((h) => h.id === habit.id)) continue;
+    for (const k of elapsedKeys(m, today)) {
+      const day = m.days[k];
+      if (isOff(day)) continue;
+      recent.push(isDone(day?.checks?.[habit.id]) ? 1 : 0);
+      if (recent.length > win) recent.shift();
+      const value = Math.min(1, recent.reduce((a, b) => a + b, 0) / need);
+      score = score * mult + value * (1 - mult);
+      seen++;
+    }
+  }
+  return seen ? score : null;
+}
+
+// Mapa de calor del año (tipo GitHub/HabitKit): un valor por día con datos.
+// → [{ key, pct: 0..1 | null, off }] para todos los días del año hasta hoy.
+export function yearHeatmap(state, year, today) {
+  const out = [];
+  for (let mo = 1; mo <= 12; mo++) {
+    const key = `${year}-${String(mo).padStart(2, '0')}`;
+    const m = state.months[key];
+    const len = monthLength(key);
+    const elapsed = m ? new Set(elapsedKeys(m, today)) : new Set();
+    for (let d = 1; d <= len; d++) {
+      const k = dayKeyOf(key, d);
+      if (k > today) return out;
+      const counts = elapsed.has(k);
+      const off = counts && isOff(m.days[k]);
+      out.push({ key: k, off, pct: counts && !off && m.habits.length ? dayScore(m, k) / m.habits.length : null });
+    }
+  }
+  return out;
+}

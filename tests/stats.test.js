@@ -137,3 +137,35 @@ test('avance mensual en Hoy', () => {
   toggleCheck(st, '2026-10-28', med);
   assert.deepEqual(S.monthProgress(st, { id: med, target: { type: 'monthly', count: 3 } }, '2026-10-29'), { done: 1, target: 3 });
 });
+
+test('fuerza del hábito: sube con constancia, cruza meses, ignora días libres', () => {
+  const st = starter({ startKey: '2026-10-22', today: '2026-10-29' });
+  const m = st.months['2026-10'];
+  const med = m.habits[1];
+  assert.equal(S.habitStrength(st, med, '2026-10-21'), null);
+  for (let d = 22; d <= 29; d++) toggleCheck(st, `2026-10-${d}`, med.id);
+  const s8 = S.habitStrength(st, med, '2026-10-29');
+  assert.ok(s8 > 0.3 && s8 < 0.4, String(s8));
+  m.days['2026-10-30'] = { note: '', checks: {}, off: true };
+  assert.equal(S.habitStrength(st, med, '2026-10-30'), s8, 'el día libre no cambia la fuerza');
+  const s9 = S.habitStrength(st, med, '2026-10-31');
+  assert.ok(s9 < s8, 'un día sin marcar la baja un poco');
+  const gym = m.habits[0]; // 4/sem: 4 marcas en 7 días = semana cumplida
+  for (const d of [22, 24, 26, 28]) toggleCheck(st, `2026-10-${d}`, gym.id);
+  const g = S.habitStrength(st, gym, '2026-10-28');
+  const daily4 = S.habitStrength(st, { id: 'x', target: { type: 'daily' } }, '2026-10-28');
+  assert.ok(g > 0.15, String(g));
+  assert.equal(daily4, null, 'hábito sin días en ningún mes');
+});
+
+test('mapa de calor del año', () => {
+  const st = starter();
+  const [gym, med] = ids(st);
+  toggleCheck(st, '2026-10-28', med); toggleCheck(st, '2026-10-28', gym);
+  const hm = S.yearHeatmap(st, '2026', '2026-10-29');
+  assert.equal(hm.length, 302);
+  assert.equal(hm[0].key, '2026-01-01');
+  assert.equal(hm[0].pct, null);
+  assert.equal(hm.find((x) => x.key === '2026-10-28').pct, 2 / 3);
+  assert.equal(hm.at(-1).key, '2026-10-29');
+});

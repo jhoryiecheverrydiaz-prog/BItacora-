@@ -74,3 +74,12 @@ test('resúmenes v2: días libres, % del mes, áreas y metas del año', async ()
   assert.match(mo, /31:L/);
   assert.match(mo, /"area":"<id o nombre de área>"/);
 });
+
+test('línea del Sistema solo si está activo', async () => {
+  const { gameLine } = await import('../js/core/summary.js');
+  const st = filled();
+  assert.equal(gameLine(st, '2026-10-31'), null);
+  st.meta.game.enabled = true;
+  assert.match(gameLine(st, '2026-10-31'), /^Sistema: Nv\. \d+ · Rango [EDCBAS] · \d+ XP/);
+  assert.match(weeklySummary(st, '2026-10-31'), /\nSistema: Nv\./);
+});

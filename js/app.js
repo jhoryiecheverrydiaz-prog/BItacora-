@@ -10,8 +10,10 @@ import { renderMonth } from './ui/month.js';
 import { renderReview } from './ui/review.js';
 import { renderSettings } from './ui/settings.js';
 import { renderYear } from './ui/year.js';
+import { renderSystem } from './ui/system.js';
+import { gameStats, progressNews, seenFrom } from './core/game.js';
 
-export const APP_VERSION = '2.0.0';
+export const APP_VERSION = '2.1.0';
 
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -63,7 +65,20 @@ const ctx = {
   browserOk: () => ls.get('browserOk') === '1',
 };
 
-store.onSaved(() => flashSaved());
+// Sistema: tras cada guardado, avisa subidas de nivel, rango y títulos (una vez cada cosa).
+function checkGame() {
+  const s = ctx.state;
+  if (!s?.meta?.game?.enabled || !s.profile) return;
+  const g = gameStats(s, ctx.today);
+  const news = progressNews(g, s.meta.game.seen);
+  if (!s.meta.game.seen || news.length) {
+    s.meta.game.seen = seenFrom(g);
+    store.saveSoon(s);
+  }
+  if (news.length) toast(`[SISTEMA] ${news.join(' · ')}`, { duration: 4000 });
+}
+
+store.onSaved(() => { flashSaved(); checkGame(); });
 
 function route() {
   return location.hash.slice(1) || 'hoy';
@@ -85,19 +100,23 @@ function render() {
     if (cs && !cs.snoozedToday) r = 'cierre';
     else if (r === 'cierre' && !cs) r = 'hoy';
     else if (r === 'onboarding') r = 'hoy';
-    if (!['cierre', 'ajustes', 'ano'].includes(r) && !currentMonth(s, ctx.today)) r = 'sinmes';
+    if (!['cierre', 'ajustes', 'ano', 'sistema'].includes(r) && !currentMonth(s, ctx.today)) r = 'sinmes';
   }
 
-  const withTabs = ['hoy', 'mes', 'ano', 'ajustes', 'sinmes'].includes(r);
+  const gameOn = !!s.meta?.game?.enabled;
+  if (r === 'sistema' && (!gameOn || !s.profile)) r = 'hoy';
+  tabs.querySelector('[data-tab="sistema"]').hidden = !gameOn;
+  const withTabs = ['hoy', 'mes', 'ano', 'sistema', 'ajustes', 'sinmes'].includes(r);
   tabs.hidden = !withTabs;
   document.body.classList.toggle('has-tabs', withTabs);
+  document.body.classList.toggle('sys-mode', r === 'sistema');
   for (const a of tabs.querySelectorAll('a')) {
     const on = a.dataset.tab === r;
     a.classList.toggle('on', on);
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
 
-  const views = { onboarding: renderOnboarding, cierre: renderReview, hoy: renderToday, mes: renderMonth, ajustes: renderSettings, ano: renderYear, sinmes: renderNoMonth };
+  const views = { onboarding: renderOnboarding, cierre: renderReview, hoy: renderToday, mes: renderMonth, ajustes: renderSettings, ano: renderYear, sistema: renderSystem, sinmes: renderNoMonth };
   (views[r] || renderToday)(view, ctx);
   window.scrollTo(0, 0);
 }

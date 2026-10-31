@@ -1,5 +1,5 @@
 // Migraciones del esquema. Cada cambio del modelo agrega una entrada vN → vN+1 y su test.
-export const CURRENT_VERSION = 2;
+export const CURRENT_VERSION = 3;
 
 // Áreas de vida por defecto (las de la hoja "Metas" del tracker en Sheets). Ids estables.
 export const DEFAULT_AREAS = [
@@ -11,6 +11,8 @@ export const DEFAULT_AREAS = [
   { id: 'tra', name: 'Trabajo', emoji: '💼' },
 ];
 
+export const DEFAULT_GAME = { enabled: false, seen: null };
+
 // { [desde]: (state) => state en versión desde+1 }
 export const MIGRATIONS = {
   // v2: áreas de vida + metas anuales (state.areas, state.years). Opcionales y compatibles:
@@ -19,6 +21,12 @@ export const MIGRATIONS = {
     s.areas = structuredClone(DEFAULT_AREAS);
     s.years = {};
     s.schemaVersion = 2;
+    return s;
+  },
+  // v3: Sistema (gamificación opcional). Solo preferencias y lo último visto; el XP se deriva del registro.
+  2: (s) => {
+    s.meta = { ...s.meta, game: { ...DEFAULT_GAME } };
+    s.schemaVersion = 3;
     return s;
   },
 };

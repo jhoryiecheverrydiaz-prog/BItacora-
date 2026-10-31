@@ -1,11 +1,12 @@
-import { h, clear, modal, confirmModal, toast, field } from './dom.js';
-import { MONTHS_SHORT, monthTitle, monthKey } from '../core/dates.js';
+import { h, svg, clear, modal, confirmModal, toast, field } from './dom.js';
+import { MONTHS_SHORT, monthTitle, monthKey, mondayIndex, formatShort } from '../core/dates.js';
 import {
   yearStats, knownYears, addYearGoal, toggleYearGoal, editYearGoal, removeYearGoal,
   addArea, editArea, removeArea, addHabitIdea, removeHabitIdea, areaLabel,
   MAX_AREAS, MAX_YEAR_GOALS, MAX_IDEAS, IDEA_FREQ,
 } from '../core/years.js';
 import { setViewMonth } from './month.js';
+import { yearHeatmap } from '../core/stats.js';
 
 const pctText = (p) => (p === null || p === undefined ? '—' : `${Math.round(p * 100)} %`);
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -80,14 +81,34 @@ export function renderYear(root, ctx) {
         const label = `${monthTitle(m.key)}${m.imported ? ' (importado)' : ''}`;
         return h('li', {}, h('button', {
           class: `ymonth${m.key === cur ? ' now' : ''}`, type: 'button', disabled: !m.exists || future,
-          'aria-label': `${label}: ${m.exists && !future ? pctText(m.pct) : 'sin datos'}`,
           onClick: () => { setViewMonth(m.key); ctx.go('mes'); },
         },
-        h('span', { class: 'ym-name' }, cap(MONTHS_SHORT[i])),
+        h('span', { class: 'ym-name' }, h('span', { 'aria-hidden': 'true' }, cap(MONTHS_SHORT[i])), h('span', { class: 'sr-only' }, label)),
         bar(m.exists && !future ? m.pct : null, label),
-        h('span', { class: 'ym-pct' }, m.exists && !future ? pctText(m.pct) : '·')));
+        h('span', { class: 'ym-pct' }, m.exists && !future ? pctText(m.pct) : h('span', {}, h('span', { 'aria-hidden': 'true' }, '·'), h('span', { class: 'sr-only' }, ': sin datos')))));
       })),
     );
+  }
+
+  // Mapa de calor: columnas = semanas (lunes arriba), color según % del día.
+  function heatmap() {
+    const days = yearHeatmap(state, viewYear, today);
+    if (!days.some((d) => d.pct !== null || d.off)) return null;
+    const C = 11, G = 2, first = mondayIndex(`${viewYear}-01-01`);
+    const cols = Math.ceil((first + days.length) / 7);
+    const W = cols * (C + G), H = 7 * (C + G);
+    const lvl = (p) => (p === null ? 0 : p === 0 ? 1 : p < 0.34 ? 2 : p < 0.67 ? 3 : p < 1 ? 4 : 5);
+    const cells = days.map((d, i) => {
+      const idx = first + i;
+      const label = `${formatShort(d.key)}: ${d.off ? 'día libre' : pctText(d.pct)}`;
+      return svg('rect', { x: Math.floor(idx / 7) * (C + G), y: (idx % 7) * (C + G), width: C, height: C, rx: 2, class: `hm l${d.off ? 'off' : lvl(d.pct)}` }, svg('title', {}, label));
+    });
+    const withData = days.filter((d) => d.pct !== null);
+    const full = withData.filter((d) => d.pct === 1).length;
+    return h('div', { class: 'section' },
+      h('h2', {}, 'Mapa del año'),
+      h('div', { class: 'hm-wrap', tabindex: '0', role: 'group', 'aria-label': `Mapa de calor de ${viewYear}` }, svg('svg', { class: 'heatmap', viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': `Mapa de calor de ${viewYear}: ${withData.length} días con datos, ${full} al 100 %` }, ...cells)),
+      h('div', { class: 'hm-legend muted small', 'aria-hidden': 'true' }, 'Menos', [1, 2, 3, 4, 5].map((l) => h('i', { class: `hm-key l${l}` })), 'Más', h('i', { class: 'hm-key loff' }), 'Libre'));
   }
 
   function areaCard(a, ys) {
@@ -138,6 +159,7 @@ export function renderYear(root, ctx) {
       h('div', { class: 'stat-grid' },
         h('div', { class: 'stat' }, h('b', {}, pctText(ys.avgPct)), h('span', {}, 'Cumplimiento promedio de los meses')),
         h('div', { class: 'stat' }, h('b', {}, ys.goalsTotal ? `${ys.goalsDone}/${ys.goalsTotal}` : '—'), h('span', {}, 'Metas del año cumplidas'))),
+      heatmap(),
       monthsBlock(ys),
       h('div', { class: 'section' },
         h('h2', {}, 'Metas por área'),

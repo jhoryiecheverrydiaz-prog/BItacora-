@@ -74,6 +74,6 @@ test('v2: frecuencia mensual, área en el JSON de Claude y respaldo v1 se migra'
   assert.match(bad.errors[0], /no existe/);
   const r = validateBackup(JSON.stringify(asV1(st)));
   assert.ok(r.ok);
-  assert.equal(r.state.schemaVersion, 2);
+  assert.equal(r.state.schemaVersion, 3);
   assert.equal(r.state.areas.length, 6);
 });

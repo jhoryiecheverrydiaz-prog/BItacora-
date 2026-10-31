@@ -1,6 +1,6 @@
 import { h, svg, clear, modal, toast, field, confirmModal } from './dom.js';
 import { monthKey, monthTitle, monthLength, dayKeyOf, mondayIndex, WEEK_LETTERS, formatLong, formatRange } from '../core/dates.js';
-import { monthStats, lastElapsedDay, streaks } from '../core/stats.js';
+import { monthStats, lastElapsedDay, streaks, habitStrength } from '../core/stats.js';
 import { toggleCheck, setNote, toggleDayOff, isDone } from '../core/months.js';
 import { areaById, areaLabel } from '../core/years.js';
 import {
@@ -64,7 +64,7 @@ export function renderMonth(root, ctx) {
   const isEditableDay = (d) => d >= month.startDay && d <= lastElapsedDay(month, today);
 
   const sheets = h('div', { class: 'sheets' });
-  const dots = h('div', { class: 'page-dots', role: 'tablist' });
+  const dots = h('div', { class: 'page-dots', role: 'group', 'aria-label': 'Páginas del mes' });
   const goTo = (i) => sheets.scrollTo({ left: i * sheets.clientWidth, behavior: 'smooth' });
   ['Bitácora', 'Hábitos', 'Plan'].forEach((label, i) => dots.append(h('button', { type: 'button', 'aria-label': `Página ${label}`, 'aria-current': String(i === 0), onClick: () => goTo(i) })));
   sheets.addEventListener('scroll', () => {
@@ -110,8 +110,9 @@ export function renderMonth(root, ctx) {
       const rest = !!month.days[key]?.off;
       items.push(h('li', {}, h('button', {
         class: `log-item${ok ? '' : ' off'}${key === today ? ' today' : ''}${rest ? ' rest' : ''}`, type: 'button', disabled: !ok,
-        'aria-label': `Día ${d}${rest ? ', día libre' : ''}: ${month.days[key]?.note || 'sin nota'}`, onClick: () => editNote(key),
-      }, h('span', { class: 'num' }, String(d)), h('span', { class: 'txt' }, month.days[key]?.note || ''), rest && h('span', { class: 'rest-tag' }, 'libre'))));
+        onClick: () => editNote(key),
+      }, h('span', { class: 'num' }, h('span', { class: 'sr-only' }, 'Día '), String(d)), h('span', { class: 'txt' }, month.days[key]?.note || h('span', { class: 'sr-only' }, 'sin nota')),
+      rest && h('span', { class: 'rest-tag' }, 'libre'))));
     }
     logSheet.append(h('div', { class: 'sheet-inner' },
       h('h1', { class: 'sheet-title' }, monthTitle(month.key)),
@@ -214,10 +215,23 @@ export function renderMonth(root, ctx) {
     ));
   }
 
+  let redrawTimer = null;
+  function scheduleHabits(focusCell) {
+    clearTimeout(redrawTimer);
+    redrawTimer = setTimeout(() => {
+      const x = sheets.scrollLeft, y = window.scrollY;
+      drawHabits();
+      drawPlan();
+      sheets.scrollLeft = x;
+      window.scrollTo(0, y);
+      habitSheet.querySelector(`[data-cell="${focusCell}"]`)?.focus({ preventScroll: true });
+    }, 450);
+  }
+
   function drawHabits() {
     const st = monthStats(month, today);
     clear(habitSheet);
-    const head = h('tr', {}, h('th', { scope: 'col' }, 'Día'), h('th', { scope: 'col', class: 'wd', 'aria-label': 'Día de la semana' }, ''),
+    const head = h('tr', {}, h('th', { scope: 'col' }, 'Día'), h('th', { scope: 'col', class: 'wd' }, h('span', { class: 'sr-only' }, 'Día de la semana')),
       month.habits.map((hb) => h('th', { scope: 'col', 'data-c': hb.color, style: { color: 'var(--hc)' }, title: hb.name }, hb.short)),
       h('th', { scope: 'col', class: 'score', 'aria-label': 'Cumplidos' }, '#'));
     const rows = [];
@@ -236,10 +250,19 @@ export function renderMonth(root, ctx) {
           return h('td', {}, h('button', {
             class: `cell ${v || ''}`, type: 'button', 'data-c': hb.color, disabled: !ok || closed,
             'aria-pressed': String(isDone(v)), 'aria-label': `${hb.name}, día ${d}: ${STATE_LABEL[v] || 'vacío'}`,
-            onClick: () => {
-              try { toggleCheck(state, key, hb.id); } catch (e) { toast(e.message); return; }
+            'data-cell': `${key}|${hb.id}`,
+            onClick: (e) => {
+              let v;
+              try { v = toggleCheck(state, key, hb.id); } catch (err) { toast(err.message); return; }
               ctx.save();
-              drawHabits();
+              // Respuesta inmediata en la casilla y el puntaje; el resto de la hoja se redibuja agrupado.
+              const btn = e.currentTarget;
+              btn.className = `cell ${v || ''}`;
+              btn.setAttribute('aria-pressed', String(isDone(v)));
+              btn.setAttribute('aria-label', `${hb.name}, día ${d}: ${STATE_LABEL[v] || 'vacío'}`);
+              const score = btn.closest('tr')?.querySelector('td.score');
+              if (score && !month.days[key]?.off) score.textContent = String(month.habits.filter((x) => isDone(month.days[key]?.checks?.[x.id])).length);
+              scheduleHabits(`${key}|${hb.id}`);
             },
           }));
         }),
@@ -249,6 +272,7 @@ export function renderMonth(root, ctx) {
     const habitDetail = (hb) => {
       const s = st.perHabit[hb.id];
       const sk = streaks(month, hb, today);
+      const strength = habitStrength(state, hb, today);
       const area = hb.area && areaById(state, hb.area);
       return h('li', { class: 'hdetail' },
         h('div', { class: 'hd-top' },
@@ -256,7 +280,8 @@ export function renderMonth(root, ctx) {
           h('span', { class: 'grow' }, hb.name, area ? h('span', { class: 'muted small' }, ` · ${areaLabel(area)}`) : null),
           h('b', {}, pctText(s.pct))),
         pctBar(s.pct, hb.name),
-        h('div', { class: 'muted small' }, `${s.done}/${s.expected} (${s.min} mín.)`, sk ? ` · Racha: ${sk.current} actual · ${sk.max} máx.` : ''),
+        h('div', { class: 'muted small' }, `${s.done}/${s.expected} (${s.min} mín.)`, sk ? ` · Racha: ${sk.current} actual · ${sk.max} máx.` : '',
+          strength !== null ? h('span', { title: 'Media de las últimas semanas; un día fallado baja poco' }, ` · Fuerza ${pctText(strength)}`) : null),
         hb.note ? h('p', { class: 'hnote' }, hb.note) : null);
     };
     habitSheet.append(h('div', { class: 'sheet-inner' },

@@ -3,6 +3,7 @@ import { formatLong, monthKey, parseKey, diffDays, WEEK_LETTERS, mondayIndex, mo
 import { recentEditable, toggleCheck, setNote, toggleDayOff, topNotice, closeStatus, isDone } from '../core/months.js';
 import { weekProgress, monthProgress, monthStats, dayScore, isBlank } from '../core/stats.js';
 import { areaById } from '../core/years.js';
+import { gameStats } from '../core/game.js';
 import { weeklySummary } from '../core/summary.js';
 import { LINE_MODES } from './onboarding.js';
 
@@ -57,9 +58,9 @@ export function renderToday(root, ctx) {
       const blank = isBlank(m.days[k]);
       return h('button', {
         class: `day-pill${blank ? ' blank' : ''}`, type: 'button', 'aria-pressed': String(k === selected),
-        'aria-label': `${formatLong(k)}${blank ? ', en blanco' : ''}`,
         onClick: () => { selected = k; draw(); },
-      }, WEEK_LETTERS[mondayIndex(k)], h('b', {}, parseKey(k).d), h('span', { class: 'pip' }));
+      }, h('span', { 'aria-hidden': 'true' }, WEEK_LETTERS[mondayIndex(k)]), h('b', {}, parseKey(k).d), h('span', { class: 'pip' }),
+      h('span', { class: 'sr-only' }, `, ${formatLong(k)}${blank ? ', en blanco' : ''}`));
     }));
   }
 
@@ -73,7 +74,6 @@ export function renderToday(root, ctx) {
     const btn = h('button', {
       class: 'habit-row', type: 'button', 'data-c': habit.color, disabled: closed,
       'aria-pressed': String(isDone(v)),
-      'aria-label': `${habit.name}: ${STATE_LABEL[v] || 'sin marcar'}. Mantén presionado para ver el mínimo.`,
       onClick: () => {
         try { toggleCheck(state, selected, habit.id); } catch (e) { toast(e.message); return; }
         ctx.save();
@@ -84,7 +84,8 @@ export function renderToday(root, ctx) {
     h('span', { class: 'htext' },
       h('span', { class: 'hname' }, habit.name),
       h('span', { class: 'hsub' }, area?.emoji ? `${area.emoji} ` : '', weekly ? `${wp.done}/${wp.target} esta semana` : monthly ? `${wp.done}/${wp.target} este mes` : `Mín.: ${habit.min}`)),
-    h('span', { class: 'hstate' }, STATE_LABEL[v] || ''));
+    h('span', { class: 'hstate' }, STATE_LABEL[v] || h('span', { class: 'sr-only' }, 'sin marcar')),
+    h('span', { class: 'sr-only' }, '. Mantén presionado para ver el mínimo.'));
     onLongPress(btn, () => modal({ title: habit.name, body: h('div', {}, h('p', { class: 'muted' }, 'Versión mínima'), h('p', { class: 'lead' }, habit.min)) }));
     return btn;
   }
@@ -106,6 +107,12 @@ export function renderToday(root, ctx) {
       h('header', { class: 'today-head' },
         h('h1', {}, formatLong(selected), selected !== today && h('span', { class: 'muted small' }, ' · editando')),
         m.mantra && h('p', { class: 'mantra' }, m.mantra),
+        state.meta.game?.enabled && (() => {
+          const g = gameStats(state, today);
+          return h('button', { class: 'sys-chip', type: 'button', onClick: () => ctx.go('sistema') },
+            h('b', {}, `Nv. ${g.level}`), ` · Rango ${g.rank} · `, `+${g.todayGain?.xp || 0} XP hoy`,
+            h('span', { class: 'sys-chip-bar', 'aria-hidden': 'true' }, h('i', { style: { width: `${Math.round(g.progress * 100)}%` } })));
+        })(),
         h('p', { class: 'today-stats muted small' },
           off ? 'Día libre' : `Hoy: ${dayScore(m, selected)}/${n} · ${pct(n ? dayScore(m, selected) / n : null)}`,
           ` · ${monthTitle(m.key)}: ${pct(ms.pct)}`)),

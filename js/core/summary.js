@@ -2,6 +2,7 @@ import { monthKey, addDays, weekStart, mondayIndex, isoWeek, formatRange, parseK
 import { isBlank, countHabit, dayScore, monthStats, elapsedKeys } from './stats.js';
 import { dayIsInRange } from './months.js';
 import { yearOf, areaById, areaLabel } from './years.js';
+import { gameStats } from './game.js';
 
 export const DECISION_LABEL = { keep: 'mantener', up: 'subir nivel', down: 'bajar nivel', remove: 'quitar', replace: 'reemplazar' };
 
@@ -28,6 +29,13 @@ function habitLine(state, h, c, decision) {
   const d = decision ? ` → ${DECISION_LABEL[decision] || decision}` : '';
   const a = h.area && areaById(state, h.area);
   return `- ${h.short} ${h.name} [${freq(h)}${a ? ` · ${a.name}` : ''}]: ${c.done}/${c.expected} (${c.min})${d}`;
+}
+
+// Sistema (si está activo): "Sistema: Nv. 12 · Rango D · 1.234 XP · 5 días al 100 %".
+export function gameLine(state, today) {
+  if (!state.meta?.game?.enabled) return null;
+  const g = gameStats(state, today);
+  return `Sistema: Nv. ${g.level} · Rango ${g.rank} · ${g.xp} XP · ${g.perfectDays} días al 100 % · ${g.bosses} jefes`;
 }
 
 // Metas del año por área: "Fitness 1/2 · Finanzas 0/1". Vacío si no hay metas.
@@ -75,6 +83,7 @@ export function weeklySummary(state, today) {
     ...linesBlock(counted, dayOf),
     goalsLine(m),
     yearGoalsLine(state, ref.slice(0, 4)),
+    gameLine(state, today),
     '---',
     WEEKLY_INSTRUCTION,
     NOTION_LINE,
@@ -109,6 +118,7 @@ export function monthlySummary(state, key, today, decisions = null, next = null)
     ...linesBlock(keys, dayOf),
     goalsLine(m),
     yearGoalsLine(state, key.slice(0, 4)),
+    gameLine(state, today),
   ].filter((l) => l !== null);
   if (next) {
     const goals = (next.goals || []).filter(Boolean);
