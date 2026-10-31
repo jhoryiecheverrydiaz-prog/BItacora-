@@ -74,3 +74,66 @@ test('sugerencias del cierre', () => {
   assert.equal(S.suggestDecision(0.49), 'down');
   assert.equal(S.suggestDecision(null), 'keep');
 });
+
+test('días libres: no suman a lo esperado ni a días registrados; no son "en blanco"', async () => {
+  const { toggleDayOff, yesterdayWasBlank } = await import('../js/core/months.js');
+  const st = starter();
+  const m = st.months['2026-10'];
+  const [, med] = ids(st);
+  toggleCheck(st, '2026-10-28', med);
+  assert.equal(toggleDayOff(st, '2026-10-29'), true);
+  assert.equal(yesterdayWasBlank(st, '2026-10-30'), false);
+  const s = S.habitStats(m, m.habits[1], '2026-10-29');
+  assert.deepEqual([s.done, s.expected, s.pct], [1, 1, 1]);
+  const ms = S.monthStats(m, '2026-10-29');
+  assert.equal(ms.daysElapsed, 1);
+  assert.equal(ms.daysOff, 1);
+  assert.equal(ms.series[28].off, true);
+  assert.equal(ms.series[28].pct, null);
+  assert.equal(toggleDayOff(st, '2026-10-29'), false);
+  assert.equal(m.days['2026-10-29'], undefined, 'el día vacío se limpia');
+  assert.throws(() => toggleDayOff(st, '2026-10-01'), /fuera/);
+});
+
+test('frecuencia mensual: esperado proporcional al mes', () => {
+  const h = { target: { type: 'monthly', count: 4 } };
+  assert.equal(S.expectedFor(h, 31, 31), 4);
+  assert.equal(S.expectedFor(h, 15, 30), 2);
+  assert.equal(S.expectedFor(h, 5, 30), 0);
+});
+
+test('% del mes, % por semana y % diario', () => {
+  const st = starter();
+  const m = st.months['2026-10'];
+  const [gym, med, agua] = ids(st);
+  toggleCheck(st, '2026-10-28', med); toggleCheck(st, '2026-10-28', agua);
+  toggleCheck(st, '2026-10-29', med); toggleCheck(st, '2026-10-29', gym);
+  const ms = S.monthStats(m, '2026-10-29');
+  // esperado: GYM 4/sem en 2 días → 1; MED 2; AGUA 2 → hecho tope: 1+2+1 = 4/5
+  assert.equal(ms.pct, 0.8);
+  assert.equal(ms.series[27].pct, 2 / 3);
+  assert.equal(ms.avgDayPct, 2 / 3);
+  assert.equal(ms.weeks.length, 1);
+  assert.equal(ms.weeks[0].start, '2026-10-28');
+  assert.equal(ms.weeks[0].pct, 0.8);
+  assert.equal(S.combinedPct([]), null);
+});
+
+test('rachas: días libres no cortan, hoy sin marcar no corta, solo diarios', () => {
+  const st = starter({ startKey: '2026-10-22', today: '2026-10-29' });
+  const m = st.months['2026-10'];
+  const [gym, med] = ids(st);
+  for (const d of [22, 23, 25, 26, 27, 28]) toggleCheck(st, `2026-10-${d}`, med);
+  st.months['2026-10'].days['2026-10-24'] = { note: '', checks: {}, off: true };
+  assert.deepEqual(S.streaks(m, m.habits[1], '2026-10-29'), { current: 6, max: 6 });
+  assert.deepEqual(S.streaks(m, m.habits[1], '2026-10-30'), { current: 0, max: 6 });
+  assert.equal(S.streaks(m, m.habits[0], '2026-10-29'), null);
+  void gym;
+});
+
+test('avance mensual en Hoy', () => {
+  const st = starter();
+  const [, med] = ids(st);
+  toggleCheck(st, '2026-10-28', med);
+  assert.deepEqual(S.monthProgress(st, { id: med, target: { type: 'monthly', count: 3 } }, '2026-10-29'), { done: 1, target: 3 });
+});

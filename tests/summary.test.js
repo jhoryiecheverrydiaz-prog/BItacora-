@@ -54,3 +54,23 @@ test('resumen mensual incluye decisiones y próximo mes', () => {
   assert.match(txt, /Próximo mes · Mantra: "Nuevo" · Objetivos: A/);
   assert.match(txt, /Si tienes Notion conectado: regístralo en la página "Bitácora · Personal"/);
 });
+
+test('resúmenes v2: días libres, % del mes, áreas y metas del año', async () => {
+  const { addYearGoal, toggleYearGoal } = await import('../js/core/years.js');
+  const st = filled();
+  const m = st.months['2026-10'];
+  m.habits[0].area = 'fit';
+  m.days['2026-10-31'].off = true;
+  const g = addYearGoal(st, '2026', 'fit', 'Correr 10 km');
+  addYearGoal(st, '2026', 'fin', 'Ahorrar');
+  toggleYearGoal(st, '2026', g.id);
+  const w = weeklySummary(st, '2026-10-31');
+  assert.match(w, /Días registrados: 3\/3 · En blanco: 0 · Días libres: 1/);
+  assert.match(w, /- GYM Gimnasio \[4\/sem · Fitness\]/);
+  assert.match(w, /Puntaje diario: L- M- X3 J2 V3 SL D-/);
+  assert.match(w, /Metas 2026: 🏋️ Fitness 1\/1 · 💰 Finanzas 0\/1/);
+  const mo = monthlySummary(st, '2026-10', '2026-11-01');
+  assert.match(mo, /Cumplimiento del mes: \d+ % · Por semana: S1 \d+ %/);
+  assert.match(mo, /31:L/);
+  assert.match(mo, /"area":"<id o nombre de área>"/);
+});

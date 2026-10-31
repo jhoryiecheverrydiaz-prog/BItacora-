@@ -58,3 +58,22 @@ test('JSON de Claude inválido se rechaza con motivo', () => {
   assert.match(bad({ bitacora_import: 1, goals: ['a', 'b', 'c', 'd'] }).errors[0], /máximo 3/);
   assert.throws(() => extractJson('{mal'), /JSON/);
 });
+
+test('v2: frecuencia mensual, área en el JSON de Claude y respaldo v1 se migra', async () => {
+  const { validateTarget } = await import('../js/core/months.js');
+  const { asV1 } = await import('./fixtures.js');
+  assert.equal(validateTarget({ type: 'monthly', count: 8 }), null);
+  assert.match(validateTarget({ type: 'monthly', count: 40 }), /por mes/);
+  const st = starter();
+  const habits = st.months['2026-10'].habits;
+  const ok = parseClaudeImport('{"bitacora_import":1,"habits":[{"keepId":"MED","area":"Superación personal"},{"name":"Ahorrar","min":"1 peso","target":{"type":"monthly","count":4},"area":"fin"}]}', habits, st.areas);
+  assert.ok(ok.ok, ok.errors?.join('; '));
+  assert.equal(ok.proposal.edits[0].area, 'sup');
+  assert.equal(ok.proposal.added[0].area, 'fin');
+  const bad = parseClaudeImport('{"bitacora_import":1,"habits":[{"keepId":"MED","area":"Marte"}]}', habits, st.areas);
+  assert.match(bad.errors[0], /no existe/);
+  const r = validateBackup(JSON.stringify(asV1(st)));
+  assert.ok(r.ok);
+  assert.equal(r.state.schemaVersion, 2);
+  assert.equal(r.state.areas.length, 6);
+});

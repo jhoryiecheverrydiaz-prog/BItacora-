@@ -24,6 +24,20 @@ Es una web app que se instala en el iPhone. Funciona sin internet y los datos se
 - **Días anteriores:** usa la tira de días para corregir hasta 7 días atrás. Más atrás, edítalos desde **Mes**.
 - **Cierre de mes:** el primer día de cada mes aparece el cierre. Ahí decides qué hábitos mantener, subir, bajar, quitar o reemplazar, y se crea el mes nuevo.
 
+## Año y metas por área
+
+- **Año:** cumplimiento de cada mes, metas del año por área de vida (Fitness, Finanzas, Aventura, Superación personal, Relaciones, Trabajo; se pueden editar) y un plan de hábitos por área (diarios, semanales, mensuales). En el cierre de mes, el plan aparece como opciones para agregar.
+- **Mes** tiene 3 páginas: **Bitácora**, **Hábitos** (cumplimiento del mes, % por semana, días al 100 % 🏆, rachas y nota de cada hábito) y **Plan** (metas del mes, objetivos semanales, eventos importantes y facturas con total pagado/pendiente).
+- **Día libre:** en Hoy, "Marcar como día libre". Ese día no cuenta en el %.
+
+## Importar desde Google Sheets
+
+1. En Sheets: **Archivo → Descargar → Microsoft Excel (.xlsx)**.
+2. En la app: **Ajustes → Importar desde Google Sheets** y elige el archivo.
+3. Revisa cada mes (año detectado, hasta 5 hábitos) e importa. Antes se guarda un respaldo interno.
+
+Los meses que no existen en la app entran como historial cerrado. Lo que pase del tope de 5 hábitos queda en "Otros hábitos registrados en Sheets".
+
 ## Respaldo (importante)
 
 Si borras el ícono, **se borran los datos**.

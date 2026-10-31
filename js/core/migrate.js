@@ -1,9 +1,26 @@
 // Migraciones del esquema. Cada cambio del modelo agrega una entrada vN → vN+1 y su test.
-export const CURRENT_VERSION = 1;
+export const CURRENT_VERSION = 2;
+
+// Áreas de vida por defecto (las de la hoja "Metas" del tracker en Sheets). Ids estables.
+export const DEFAULT_AREAS = [
+  { id: 'fit', name: 'Fitness', emoji: '🏋️' },
+  { id: 'fin', name: 'Finanzas', emoji: '💰' },
+  { id: 'ave', name: 'Aventura', emoji: '🏔️' },
+  { id: 'sup', name: 'Superación personal', emoji: '📈' },
+  { id: 'rel', name: 'Relaciones', emoji: '❤️' },
+  { id: 'tra', name: 'Trabajo', emoji: '💼' },
+];
 
 // { [desde]: (state) => state en versión desde+1 }
 export const MIGRATIONS = {
-  // 1: (s) => { ...; s.schemaVersion = 2; return s; },  // ej. habit.kind = "check"
+  // v2: áreas de vida + metas anuales (state.areas, state.years). Opcionales y compatibles:
+  // habit.area (id de área o null), day.off (día libre), target { type: 'monthly', count }.
+  1: (s) => {
+    s.areas = structuredClone(DEFAULT_AREAS);
+    s.years = {};
+    s.schemaVersion = 2;
+    return s;
+  },
 };
 
 export function migrate(state, migrations = MIGRATIONS, target = CURRENT_VERSION) {

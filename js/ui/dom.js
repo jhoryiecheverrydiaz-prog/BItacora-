@@ -151,3 +151,19 @@ export function onLongPress(el, fn, ms = 450) {
 export function field(label, input, hint) {
   return h('label', { class: 'field' }, h('span', { class: 'field-label' }, label), input, hint && h('span', { class: 'field-hint' }, hint));
 }
+
+// Varios archivos a la vez: [{ name, text?, buffer? }]. Los .xlsx se leen como binario.
+export function pickFiles(accept, { multiple = true } = {}) {
+  return new Promise((resolve) => {
+    const input = h('input', { type: 'file', accept, multiple, hidden: true });
+    input.addEventListener('change', async () => {
+      const files = [...(input.files || [])];
+      input.remove();
+      resolve(await Promise.all(files.map(async (f) => (/\.xlsx$/i.test(f.name)
+        ? { name: f.name, buffer: await f.arrayBuffer() }
+        : { name: f.name, text: await f.text() }))));
+    });
+    document.body.append(input);
+    input.click();
+  });
+}

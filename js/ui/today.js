@@ -1,7 +1,8 @@
 import { h, clear, modal, shareText, onLongPress, toast } from './dom.js';
 import { formatLong, monthKey, parseKey, diffDays, WEEK_LETTERS, mondayIndex, monthTitle } from '../core/dates.js';
-import { recentEditable, toggleCheck, setNote, topNotice, closeStatus, isDone } from '../core/months.js';
-import { weekProgress, isBlank } from '../core/stats.js';
+import { recentEditable, toggleCheck, setNote, toggleDayOff, topNotice, closeStatus, isDone } from '../core/months.js';
+import { weekProgress, monthProgress, monthStats, dayScore, isBlank } from '../core/stats.js';
+import { areaById } from '../core/years.js';
 import { weeklySummary } from '../core/summary.js';
 import { LINE_MODES } from './onboarding.js';
 
@@ -66,7 +67,9 @@ export function renderToday(root, ctx) {
     const v = m.days[selected]?.checks?.[habit.id];
     const closed = !!m.review;
     const weekly = habit.target?.type === 'weekly';
-    const wp = weekly ? weekProgress(state, habit, selected) : null;
+    const monthly = habit.target?.type === 'monthly';
+    const wp = weekly ? weekProgress(state, habit, selected) : monthly ? monthProgress(state, habit, selected) : null;
+    const area = habit.area && areaById(state, habit.area);
     const btn = h('button', {
       class: 'habit-row', type: 'button', 'data-c': habit.color, disabled: closed,
       'aria-pressed': String(isDone(v)),
@@ -80,7 +83,7 @@ export function renderToday(root, ctx) {
     h('span', { class: `box ${v || ''}`, 'data-c': habit.color, 'aria-hidden': 'true' }),
     h('span', { class: 'htext' },
       h('span', { class: 'hname' }, habit.name),
-      h('span', { class: 'hsub' }, weekly ? `${wp.done}/${wp.target} esta semana` : `Mín.: ${habit.min}`)),
+      h('span', { class: 'hsub' }, area?.emoji ? `${area.emoji} ` : '', weekly ? `${wp.done}/${wp.target} esta semana` : monthly ? `${wp.done}/${wp.target} este mes` : `Mín.: ${habit.min}`)),
     h('span', { class: 'hstate' }, STATE_LABEL[v] || ''));
     onLongPress(btn, () => modal({ title: habit.name, body: h('div', {}, h('p', { class: 'muted' }, 'Versión mínima'), h('p', { class: 'lead' }, habit.min)) }));
     return btn;
@@ -95,14 +98,26 @@ export function renderToday(root, ctx) {
       onInput: (e) => { setNote(state, selected, e.target.value); ctx.save(); },
       onKeydown: (e) => { if (e.key === 'Enter') e.target.blur(); },
     });
+    const off = !!m.days[selected]?.off;
+    const ms = monthStats(m, today);
+    const pct = (p) => (p === null || p === undefined ? '—' : `${Math.round(p * 100)} %`);
+    const n = m.habits.length;
     page.append(...[
       h('header', { class: 'today-head' },
         h('h1', {}, formatLong(selected), selected !== today && h('span', { class: 'muted small' }, ' · editando')),
-        m.mantra && h('p', { class: 'mantra' }, m.mantra)),
+        m.mantra && h('p', { class: 'mantra' }, m.mantra),
+        h('p', { class: 'today-stats muted small' },
+          off ? 'Día libre' : `Hoy: ${dayScore(m, selected)}/${n} · ${pct(n ? dayScore(m, selected) / n : null)}`,
+          ` · ${monthTitle(m.key)}: ${pct(ms.pct)}`)),
       selected === today && noticeEl(),
       strip(),
       m.review && h('p', { class: 'muted small' }, 'Mes cerrado: solo se puede editar la línea.'),
-      h('div', { class: 'habits' }, m.habits.map((hb) => habitRow(m, hb))),
+      h('div', { class: `habits${off ? ' resting' : ''}` }, m.habits.map((hb) => habitRow(m, hb))),
+      !m.review && h('button', { class: 'linklike small day-off', type: 'button', 'aria-pressed': String(off), onClick: () => {
+        try { toggleDayOff(state, selected); } catch (e) { toast(e.message); return; }
+        ctx.save();
+        draw();
+      } }, off ? 'Es día libre · quitar' : 'Marcar como día libre (no cuenta en el %)'),
       h('label', { class: 'field line-field' }, h('span', { class: 'field-label' }, 'Línea del día'), note),
     ].filter(Boolean));
   }

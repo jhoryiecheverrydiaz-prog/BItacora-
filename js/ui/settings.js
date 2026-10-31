@@ -1,5 +1,7 @@
-import { h, clear, modal, confirmModal, toast, pickTextFile, shareText, field } from './dom.js';
+import { h, clear, modal, confirmModal, toast, pickTextFile, pickFiles, shareText, field } from './dom.js';
 import { todayKey, monthKey, monthTitle, WEEKDAYS, formatShort } from '../core/dates.js';
+import { parseCsv, readXlsx, planImport, applyImport, defaultSelection, describePlanMonth, YEAR_SOURCE_LABEL } from '../core/sheets.js';
+import { areaLabel, areaById } from '../core/years.js';
 import { editHabitText, emergencyChange, emptyState, MAX_HABITS, MAX_SHORT, newId } from '../core/months.js';
 import { validateBackup, describeReplace, parseClaudeImport, describeProposal } from '../core/importer.js';
 import { weeklySummary } from '../core/summary.js';
@@ -22,14 +24,18 @@ export function renderSettings(root, ctx) {
     const name = h('input', { class: 'input', value: hb.name, maxlength: 40 });
     const short = h('input', { class: 'input', value: hb.short, maxlength: MAX_SHORT, autocapitalize: 'characters' });
     const min = h('input', { class: 'input', value: hb.min, maxlength: 80 });
+    const note = h('input', { class: 'input', value: hb.note || '', maxlength: 140, placeholder: 'Ej.: después del almuerzo' });
+    const area = h('select', { class: 'input' }, h('option', { value: '', selected: !hb.area }, 'Sin área'),
+      (state.areas || []).map((a) => h('option', { value: a.id, selected: hb.area === a.id }, areaLabel(a))));
     const ok = await modal({
       title: 'Corregir hábito',
-      body: h('div', {}, h('p', { class: 'muted small' }, 'Solo corrige el texto. Para cambiar el hábito, espera al cierre.'),
-        field('Nombre', name), field(`Etiqueta (≤ ${MAX_SHORT})`, short), field('Versión mínima', min)),
+      body: h('div', {}, h('p', { class: 'muted small' }, 'Solo corrige el texto, el área y la nota. Para cambiar el hábito, espera al cierre.'),
+        field('Nombre', name), field(`Etiqueta (≤ ${MAX_SHORT})`, short), field('Versión mínima', min),
+        field('Área de vida', area), field('Nota (opcional)', note)),
       actions: [{ label: 'Cancelar', value: false }, { label: 'Guardar', value: true, kind: 'primary' }],
     });
     if (!ok) return;
-    try { editHabitText(state, mk, hb.id, { name: name.value, short: short.value, min: min.value }); } catch (e) { toast(cap(e.message), { duration: 3500 }); return; }
+    try { editHabitText(state, mk, hb.id, { name: name.value, short: short.value, min: min.value, area: area.value || null, note: note.value }); } catch (e) { toast(cap(e.message), { duration: 3500 }); return; }
     ctx.save();
     draw();
   }
@@ -109,7 +115,7 @@ export function renderSettings(root, ctx) {
         actions: [{ label: 'Cancelar', value: false }, { label: 'Validar', value: true, kind: 'primary' }],
       });
       if (!ok) return;
-      const r = parseClaudeImport(ta.value, month.habits);
+      const r = parseClaudeImport(ta.value, month.habits, state.areas);
       if (!r.ok) { clear(errBox).append(errList(r.errors)); continue; }
       const yes = await confirmModal('Propuesta para el cierre', h('ul', { class: 'rules' }, describeProposal(r.proposal, month.habits).map((l) => h('li', {}, l))), { ok: 'Guardar propuesta' });
       if (!yes) return;
@@ -118,6 +124,100 @@ export function renderSettings(root, ctx) {
       toast('Propuesta guardada para el cierre');
       draw();
       return;
+    }
+  }
+
+  async function importSheets() {
+    const files = await pickFiles('.xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    if (!files.length) return;
+    let sources = [];
+    try {
+      for (const f of files) {
+        if (f.buffer) sources.push(...(await readXlsx(f.buffer)));
+        else sources.push({ name: f.name, rows: parseCsv(f.text) });
+      }
+    } catch (e) { await modal({ title: 'No pude leer el archivo', body: cap(e.message) }); return; }
+    const plan = planImport(state, sources, today);
+    const usable = plan.months.filter((m) => m.status === 'new' || m.status === 'merge');
+    if (!usable.length && !plan.goals) {
+      await modal({ title: 'Nada para importar', body: h('div', {},
+        h('p', {}, 'No encontré pestañas de meses con marcas ni una pestaña de metas.'),
+        plan.months.length ? h('ul', { class: 'rules' }, plan.months.map((m) => h('li', {}, describePlanMonth(m)))) : null) });
+      return;
+    }
+    const goalsYear = h('select', { class: 'input' }, [Number(today.slice(0, 4)), Number(today.slice(0, 4)) - 1].map((y) => {
+      const sheetYear = plan.months.length ? Math.max(...plan.months.filter((m) => m.total).map((m) => m.year), 0) : 0;
+      return h('option', { value: String(y), selected: y === (sheetYear || Number(today.slice(0, 4))) }, String(y));
+    }));
+    const importGoals = h('input', { type: 'checkbox', checked: !!plan.goals });
+    const errBox = h('div');
+
+    const monthCard = (pm) => {
+      const box = h('div', { class: 'card' });
+      const yearSel = h('select', { class: 'input', 'aria-label': 'Año del mes', onChange: () => {
+        pm.year = Number(yearSel.value);
+        pm.key = `${pm.year}-${String(pm.month).padStart(2, '0')}`;
+        const ex = state.months[pm.key];
+        pm.status = pm.key > monthKey(today) ? 'future' : !pm.total ? 'empty' : !ex ? 'new' : ex.review ? 'closed' : 'merge';
+        pm.selected = defaultSelection(state, pm);
+        draw();
+      } }, [0, 1, 2].map((d) => Number(today.slice(0, 4)) - d).map((y) => h('option', { value: y, selected: y === pm.year }, String(y))));
+      const draw = () => {
+        clear(box);
+        const can = pm.status === 'new' || pm.status === 'merge';
+        box.append(...[
+          h('p', {}, h('b', {}, describePlanMonth(pm))),
+          h('div', { class: 'row' }, field(`Año (${YEAR_SOURCE_LABEL[pm.yearSource] || ''})`, yearSel)),
+          can && h('p', { class: 'muted small' }, pm.status === 'new'
+            ? `Elige hasta ${MAX_HABITS} hábitos. Los demás con marcas quedan en "Otros hábitos registrados".`
+            : 'Solo se suman los que se llaman igual que un hábito del mes. Los demás quedan en "Otros hábitos registrados".'),
+          can && h('div', { class: 'chips' }, pm.habits.filter((x) => x.count > 0).map((x) => h('button', {
+            class: 'chip', type: 'button', 'aria-pressed': String(pm.selected.includes(x.name)),
+            disabled: pm.status === 'merge' && !defaultSelection(state, pm).includes(x.name),
+            onClick: () => {
+              if (pm.selected.includes(x.name)) pm.selected = pm.selected.filter((n) => n !== x.name);
+              else if (pm.selected.length < MAX_HABITS) pm.selected.push(x.name);
+              else { toast(`Tope de ${MAX_HABITS} hábitos por mes`); return; }
+              draw();
+            },
+          }, `${x.name} · ${x.count}`))),
+        ].filter(Boolean));
+      };
+      draw();
+      return box;
+    };
+
+    const body = h('div', {},
+      h('p', { class: 'muted small' }, 'Antes de importar guardo un respaldo interno. Los meses que no existen en la app entran como historial cerrado; el mes en curso solo suma marcas.'),
+      plan.months.map(monthCard),
+      plan.goals && h('div', { class: 'card' },
+        h('p', {}, h('b', {}, `Pestaña de metas: ${plan.goals.length} áreas, ${plan.goals.reduce((n, g) => n + g.goals.length, 0)} metas, ${plan.goals.reduce((n, g) => n + (g.ideas?.length || 0), 0)} hábitos del plan`)),
+        h('label', { class: 'check-line' }, importGoals, h('span', {}, 'Importar metas y plan de hábitos')),
+        field('Año de las metas', goalsYear)),
+      plan.skipped.length ? h('p', { class: 'muted small' }, `Sin datos reconocibles: ${plan.skipped.join(', ')}.`) : null,
+      errBox);
+    for (;;) {
+      const ok = await modal({ title: 'Importar desde Google Sheets', body, actions: [{ label: 'Cancelar', value: false }, { label: 'Importar', value: true, kind: 'primary' }] });
+      if (!ok) return;
+      try {
+        await ctx.backup('antes de importar de Sheets');
+        const draft = structuredClone(state);
+        const res = applyImport(draft, plan, { goalsYear: importGoals.checked ? goalsYear.value : null });
+        Object.assign(state, draft);
+        await ctx.saveNow();
+        const parts = [];
+        if (res.created.length) parts.push(`${res.created.length} meses de historial`);
+        const merged = res.merged.reduce((n, x) => n + x.checks, 0);
+        if (res.merged.length) parts.push(`${merged} marcas sumadas`);
+        if (res.goals) parts.push(`${res.goals} metas`);
+        if (res.ideas) parts.push(`${res.ideas} hábitos al plan`);
+        if (res.areas) parts.push(`${res.areas} áreas nuevas`);
+        toast(parts.length ? `Importado: ${parts.join(', ')}` : 'No había nada nuevo', { duration: 4500 });
+        draw();
+        return;
+      } catch (e) {
+        clear(errBox).append(h('p', { class: 'err-text' }, cap(e.message)));
+      }
     }
   }
 
@@ -155,7 +255,7 @@ export function renderSettings(root, ctx) {
       month && h('div', { class: 'section' }, h('h2', {}, `Hábitos de ${monthTitle(mk)}`),
         h('ul', { class: 'list' }, month.habits.map((hb) => h('li', {},
           h('span', { class: 'box full', 'data-c': hb.color, style: { width: '18px', height: '18px' } }),
-          h('span', { class: 'grow' }, h('b', {}, hb.short), ` ${hb.name}`, h('br'), h('span', { class: 'muted small' }, `Mín.: ${hb.min}`)),
+          h('span', { class: 'grow' }, h('b', {}, hb.short), ` ${hb.name}`, h('br'), h('span', { class: 'muted small' }, `Mín.: ${hb.min}${hb.area && areaById(state, hb.area) ? ` · ${areaLabel(areaById(state, hb.area))}` : ''}`)),
           h('button', { class: 'btn', type: 'button', onClick: () => editHabit(hb) }, 'Corregir')))),
         h('p', { class: 'muted small', style: { marginTop: '8px' } }, 'Agregar o quitar hábitos se hace en el cierre de mes.'),
         !month.review && h('button', { class: 'linklike small', type: 'button', onClick: emergency }, 'Cambio de emergencia'),
@@ -175,6 +275,11 @@ export function renderSettings(root, ctx) {
         h('p', { class: 'muted small', style: { marginTop: '10px' } },
           persist === true ? 'Almacenamiento persistente: concedido.' : persist === false ? 'Almacenamiento persistente: no concedido. Exporta respaldos seguido.' : 'Almacenamiento persistente: sin confirmar.'),
       ),
+
+      h('div', { class: 'section' }, h('h2', {}, 'Google Sheets'),
+        h('p', { class: 'muted small' }, 'Trae tu tracker de Sheets: meses, días activos, notas, metas por área y plan de hábitos. En Sheets: Archivo → Descargar → Microsoft Excel (.xlsx). También sirven pestañas sueltas en CSV.'),
+        h('button', { class: 'btn block', type: 'button', onClick: importSheets }, 'Importar desde Google Sheets'),
+        h('button', { class: 'linklike small', type: 'button', onClick: () => ctx.go('ano') }, 'Ver metas por área (Año)')),
 
       h('div', { class: 'section' }, h('h2', {}, 'Recordatorio diario'), reminderBlock(prof)),
 

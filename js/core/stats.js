@@ -1,6 +1,7 @@
 import { monthKey, monthLength, dayKeyOf, parseKey, mondayIndex, weekStart, addDays } from './dates.js';
 
 export const isDone = (v) => v === 'full' || v === 'min';
+export const isOff = (day) => day?.off === true;
 
 export function isBlank(day) {
   if (!day) return true;
@@ -25,8 +26,10 @@ export function elapsedKeys(month, today) {
   return keys;
 }
 
-export function expectedFor(habit, nDays) {
+// nDays = días activos (sin días libres). monthLen solo importa para hábitos mensuales.
+export function expectedFor(habit, nDays, monthLen = 30) {
   if (habit.target?.type === 'weekly') return Math.floor((habit.target.count * nDays) / 7);
+  if (habit.target?.type === 'monthly') return Math.floor((habit.target.count * Math.min(nDays, monthLen)) / monthLen);
   return nDays;
 }
 
@@ -35,21 +38,47 @@ export function pctOf(done, expected) {
   return Math.min(1, done / expected);
 }
 
-// keys: lista de fechas; daysByKey(key) → registro del día
-export function countHabit(habit, keys, daysByKey) {
-  let full = 0, min = 0;
+// keys: lista de fechas; daysByKey(key) → registro del día. Los días libres no suman a lo
+// esperado, pero lo que se hizo en ellos sí cuenta (el % se topa en 100).
+export function countHabit(habit, keys, daysByKey, monthLen = 30) {
+  let full = 0, min = 0, active = 0;
   for (const k of keys) {
-    const v = daysByKey(k)?.checks?.[habit.id];
+    const day = daysByKey(k);
+    if (!isOff(day)) active++;
+    const v = day?.checks?.[habit.id];
     if (v === 'full') full++;
     else if (v === 'min') min++;
   }
   const done = full + min;
-  const expected = expectedFor(habit, keys.length);
+  const expected = expectedFor(habit, active, monthLen);
   return { done, full, min, expected, pct: pctOf(done, expected) };
 }
 
 export function habitStats(month, habit, today) {
-  return countHabit(habit, elapsedKeys(month, today), (k) => month.days[k]);
+  return countHabit(habit, elapsedKeys(month, today), (k) => month.days[k], monthLength(month.key));
+}
+
+// Cumplimiento conjunto: Σ min(hecho, esperado) / Σ esperado. null si nada se esperaba.
+export function combinedPct(counts) {
+  let done = 0, expected = 0;
+  for (const c of counts) { done += Math.min(c.done, c.expected); expected += c.expected; }
+  return pctOf(done, expected);
+}
+
+// Cumplimiento por semana (lunes–domingo) dentro de los días contados del mes.
+export function weeklyBreakdown(month, today) {
+  const keys = elapsedKeys(month, today);
+  const len = monthLength(month.key);
+  const groups = new Map();
+  for (const k of keys) {
+    const ws = weekStart(k);
+    if (!groups.has(ws)) groups.set(ws, []);
+    groups.get(ws).push(k);
+  }
+  return [...groups.values()].map((ks, i) => {
+    const counts = month.habits.map((h) => countHabit(h, ks, (k) => month.days[k], len));
+    return { index: i + 1, start: ks[0], end: ks[ks.length - 1], days: ks.length, pct: combinedPct(counts) };
+  });
 }
 
 export function dayScore(month, key) {
@@ -65,9 +94,18 @@ export function monthStats(month, today) {
   for (let d = 1; d <= len; d++) {
     const key = dayKeyOf(month.key, d);
     const counts = elapsed.has(key);
-    series.push({ day: d, key, counts, score: counts ? dayScore(month, key) : null, blank: counts ? isBlank(month.days[key]) : null });
+    const off = counts && isOff(month.days[key]);
+    const score = counts ? dayScore(month, key) : null;
+    series.push({
+      day: d, key, counts, off, score,
+      pct: counts && !off && month.habits.length ? score / month.habits.length : null,
+      // "Premios" del Sheet: día con todos los hábitos del mes cumplidos.
+      perfect: counts && month.habits.length > 0 && score === month.habits.length,
+      blank: counts ? isBlank(month.days[key]) : null,
+    });
   }
-  const counted = series.filter((s) => s.counts);
+  const all = series.filter((s) => s.counts);
+  const counted = all.filter((s) => !s.off);
   const registered = counted.filter((s) => !s.blank).length;
 
   let bestDay = null;
@@ -89,8 +127,15 @@ export function monthStats(month, today) {
   const perHabit = {};
   for (const h of month.habits) perHabit[h.id] = habitStats(month, h, today);
 
+  const dayPcts = counted.map((s) => s.pct).filter((p) => p !== null);
+
   return {
     daysElapsed: counted.length,
+    daysOff: all.length - counted.length,
+    perfectDays: all.filter((s) => s.perfect).length,
+    pct: combinedPct(Object.values(perHabit)),
+    avgDayPct: dayPcts.length ? dayPcts.reduce((a, b) => a + b, 0) / dayPcts.length : null,
+    weeks: weeklyBreakdown(month, today),
     daysRegistered: registered,
     pctRegistered: pctOf(registered, counted.length),
     bestDay: bestDay ? { day: bestDay.day, key: bestDay.key, score: bestDay.score } : null,
@@ -98,6 +143,14 @@ export function monthStats(month, today) {
     perHabit,
     series,
   };
+}
+
+// Avance de un hábito mensual en el mes de `today`.
+export function monthProgress(state, habit, today) {
+  const m = state.months[monthKey(today)];
+  let done = 0;
+  for (const d of Object.values(m?.days || {})) if (isDone(d.checks?.[habit.id])) done++;
+  return { done, target: habit.target?.type === 'monthly' ? habit.target.count : monthLength(monthKey(today)) };
 }
 
 // Avance de un hábito semanal en la semana (lunes–domingo) de `today`, cruzando meses.
@@ -108,6 +161,22 @@ export function weekProgress(state, habit, today) {
     if (isDone(m?.days[k]?.checks?.[habit.id])) done++;
   }
   return { done, target: habit.target?.type === 'weekly' ? habit.target.count : 7 };
+}
+
+// Rachas (columnas "Racha actual / Máx." del Sheet). Solo para hábitos diarios. Un día libre
+// no corta ni suma. La actual cuenta hasta el último día contado (si hoy aún no se marca, no corta).
+export function streaks(month, habit, today) {
+  if (habit.target?.type && habit.target.type !== 'daily') return null;
+  const keys = elapsedKeys(month, today);
+  let run = 0, max = 0;
+  for (const k of keys) {
+    const d = month.days[k];
+    if (isDone(d?.checks?.[habit.id])) { run++; max = Math.max(max, run); }
+    else if (isOff(d)) continue;
+    else if (k === today) continue;
+    else run = 0;
+  }
+  return { current: run, max };
 }
 
 export function suggestDecision(pct) {

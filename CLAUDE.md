@@ -10,25 +10,37 @@ PWA de hábitos mensual (libreta de 2 páginas) para iPhone. HTML + CSS + JS van
 - **Versionar el SW en cada deploy**: `CACHE` en `sw.js` = `bitacora-v<APP_VERSION>` de `js/app.js`. Si agregas un archivo, súmalo a `SHELL` en `sw.js`.
 - **Todo cambio del modelo = migración + test** en `js/core/migrate.js` (`MIGRATIONS[n]` sube a n+1) y `tests/migrate.test.js`.
 - Rutas relativas (nunca `/` absoluto). Sin `alert`/`confirm` (usar `modal`/`confirmModal` de `ui/dom.js`). Sin `navigator.vibrate` ni `beforeinstallprompt`.
-- UI en español de Colombia, tuteo, factual, sin regaños ni frases motivacionales. Sin rachas.
+- UI en español de Colombia, tuteo, factual, sin regaños ni frases motivacionales. Rachas solo como dato en Mes → Cada hábito (actual y máx., como en el Sheet); nunca avisos ni presión por rachas.
+- **Nada del Sheet se pierde**: cada dato del tracker de Google Sheets tiene su lugar (ver "Google Sheets" abajo). Si el Sheet crece, se mapea igual.
 - Hábitos solo se agregan/quitan en el cierre (o "cambio de emergencia", que queda en `review.notes`).
 
 ## Mapa
 - `index.html`, `manifest.webmanifest`, `sw.js` (cache-first del shell), `css/app.css`, `icons/`.
-- `js/app.js`: arranque, router por hash (`#hoy #mes #ajustes #onboarding #cierre`), SW + aviso de actualización, `APP_VERSION`, fecha simulada `?fecha=YYYY-MM-DD` solo si `localStorage.debug === "1"`.
+- `js/app.js`: arranque, router por hash (`#hoy #mes #ano #ajustes #onboarding #cierre`), SW + aviso de actualización, `APP_VERSION`, fecha simulada `?fecha=YYYY-MM-DD` solo si `localStorage.debug === "1"`.
 - `js/store.js`: IndexedDB `bitacora` (store `state` clave `main`, store `backups` últimos 5), guardado con debounce 300 ms.
 - `js/core/` (lógica pura, sin DOM, 100 % testeada):
   - `dates.js` fechas locales, semana ISO, formatos en español.
-  - `stats.js` done/full/min/expected/pct, score diario, % días registrados, mejor día, día flojo, avance semanal.
+  - `stats.js` done/full/min/expected/pct (días libres fuera de lo esperado; frecuencia diaria/semanal/mensual), cumplimiento del mes (`combinedPct`), % por semana, % diario, días al 100 % (premios), rachas, mejor día, día flojo, avance semanal y mensual.
   - `months.js` estado inicial, mes parcial de arranque, cierre con decisiones (keep/up/down/remove/replace), meses saltados, "cerrar después", registro diario, avisos.
   - `summary.js` textos para Claude (semanal/mensual, formato §8.1).
   - `importer.js` validación de respaldos y del JSON `bitacora_import` (keepId = id o etiqueta).
-  - `migrate.js` versión del esquema y migraciones.
-- `js/ui/`: `dom.js` (h, modales, toasts, compartir), `install.js`, `onboarding.js` (también `habitForm`, `reminderBlock`, `LINE_MODES`), `today.js`, `month.js` (gráfica SVG), `review.js` (cierre), `settings.js`.
-- `tests/`: `node --test`, un archivo por módulo core + `fixtures.js`.
+  - `migrate.js` versión del esquema y migraciones (`DEFAULT_AREAS`).
+  - `years.js` áreas de vida y metas anuales, plan anual de hábitos por área (ideas diarias/semanales/mensuales), panorama del año.
+  - `plan.js` plan del mes: objetivos semanales (generales y Semana 1-5), eventos importantes, facturas (valor, pagada, totales).
+  - `sheets.js` importador del tracker de Sheets: CSV y .xlsx (unzip + XML propio con `DecompressionStream`, sin dependencias), detección de mes/año, días activos, hábitos, notas, parte de abajo del mes y pestaña Metas; `planImport` → `applyImport`.
+- `js/ui/`: `dom.js` (h, modales, toasts, compartir, `pickFiles`), `install.js`, `onboarding.js` (también `habitForm` con área y frecuencia mensual, `useAreas`, `reminderBlock`, `LINE_MODES`), `today.js` (% del día/mes, día libre), `month.js` (3 páginas: Bitácora, Hábitos con gráfica/semanas/rachas, Plan), `year.js` (Año), `review.js` (cierre, con el plan anual como opciones), `settings.js` (incluye importar de Sheets).
+- `tests/`: `node --test`, un archivo por módulo core + `fixtures.js` + `sheet-fixture.js` (hoja sintética con el mismo diseño del Sheet y un .xlsx armado en memoria).
 
-## Modelo (schemaVersion 1)
-`{ schemaVersion, profile, months: { "YYYY-MM": { key, startDay, isStarter, mantra, goals[], habits[], days{ "YYYY-MM-DD": { note, checks{id: full|min} } }, changeLog[], review, provisional? } }, meta: { lastOpenedDate, lastBackupAt, lastWeeklySentAt, persistGranted, closeSnoozedOn, onboardingDraft, pendingImport } }`
+## Modelo (schemaVersion 2)
+`{ schemaVersion, profile, areas: [{ id, name, emoji }], years: { "YYYY": { goals: [{ id, areaId, text, done, doneAt? }], habitIdeas: [{ id, areaId, text, freq: daily|weekly|monthly }] } }, months: { "YYYY-MM": { key, startDay, isStarter, mantra, goals[] (≤ 3 al crear, ≤ 10 importadas), habits[{ id, name, short, min, target{ daily | weekly,count | monthly,count }, area?, note?, level, color }], days{ "YYYY-MM-DD": { note, checks{id: full|min}, off? } }, weekGoals?[{ id, week 0-5, text, done }], events?[{ id, day, text, done }], bills?[{ id, day, text, amount, paid }], archived?[{ name, done[días], note? }], changeLog[], review (imported? si vino de Sheets), provisional? } }, meta: {…} }`
+- v1 → v2: agrega `areas` (6 por defecto) y `years: {}`. El resto son campos opcionales.
+
+## Google Sheets (tracker mensual) → dónde vive cada dato
+- Pestaña mes: casillas → `days.checks` (full); "Días activos" FALSE → `days.off`; "Tu progreso" → Mes: cumplimiento; % diario → gráfica y promedio diario; "Tareas realizadas semanalmente %" → Mes: Por semana; Racha actual/máx. → Mes: Cada hábito; Notas → `habit.note`; Premios 🏆 → días al 100 %; Metas mensuales → `month.goals`; Objetivos semanales y Semana N → `weekGoals`; Eventos importantes → `events`; Facturas mensuales → `bills`.
+- Más de 5 hábitos (tope) o hábitos que no coinciden con los del mes → `month.archived` (historial de solo lectura).
+- Pestaña Metas: áreas → `areas`; objetivos con casilla → `years[Y].goals`; Hábitos diarios/semanales/mensuales → `years[Y].habitIdeas` (se eligen en el cierre).
+- Meses que no existen en la app entran cerrados (`review.imported`); el mes abierto solo suma marcas de hábitos con el mismo nombre. Reimportar no duplica.
+- En .xlsx el encabezado de días son fechas seriales (=K9+1): de ahí salen mes y año. En CSV el año sale del día de la semana del día 1.
 
 ## Notion (camino A: Claude como puente)
 - La app no llama a Notion: la clave quedaría pública y Notion bloquea llamadas desde el navegador.

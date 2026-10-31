@@ -4,13 +4,14 @@ import { migrate } from './core/migrate.js';
 import * as store from './store.js';
 import { h, clear, toast, flashSaved, shareFile } from './ui/dom.js';
 import { isStandalone, renderInstall } from './ui/install.js';
-import { renderOnboarding } from './ui/onboarding.js';
+import { renderOnboarding, useAreas } from './ui/onboarding.js';
 import { renderToday } from './ui/today.js';
 import { renderMonth } from './ui/month.js';
 import { renderReview } from './ui/review.js';
 import { renderSettings } from './ui/settings.js';
+import { renderYear } from './ui/year.js';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '2.0.0';
 
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -71,6 +72,7 @@ function route() {
 function render() {
   clear(view);
   const s = ctx.state;
+  useAreas(s.areas);
   let r = route();
 
   if (!isStandalone() && !ctx.browserOk()) {
@@ -83,10 +85,10 @@ function render() {
     if (cs && !cs.snoozedToday) r = 'cierre';
     else if (r === 'cierre' && !cs) r = 'hoy';
     else if (r === 'onboarding') r = 'hoy';
-    if (!['cierre', 'ajustes'].includes(r) && !currentMonth(s, ctx.today)) r = 'sinmes';
+    if (!['cierre', 'ajustes', 'ano'].includes(r) && !currentMonth(s, ctx.today)) r = 'sinmes';
   }
 
-  const withTabs = ['hoy', 'mes', 'ajustes', 'sinmes'].includes(r);
+  const withTabs = ['hoy', 'mes', 'ano', 'ajustes', 'sinmes'].includes(r);
   tabs.hidden = !withTabs;
   document.body.classList.toggle('has-tabs', withTabs);
   for (const a of tabs.querySelectorAll('a')) {
@@ -95,7 +97,7 @@ function render() {
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
 
-  const views = { onboarding: renderOnboarding, cierre: renderReview, hoy: renderToday, mes: renderMonth, ajustes: renderSettings, sinmes: renderNoMonth };
+  const views = { onboarding: renderOnboarding, cierre: renderReview, hoy: renderToday, mes: renderMonth, ajustes: renderSettings, ano: renderYear, sinmes: renderNoMonth };
   (views[r] || renderToday)(view, ctx);
   window.scrollTo(0, 0);
 }

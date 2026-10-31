@@ -1,5 +1,6 @@
 import { isDateKey, isMonthKey, monthKey, monthLength, parseKey } from './dates.js';
-import { validateHabitList, validateHabit, validateTarget, MAX_HABITS, MAX_GOALS, MAX_SHORT, autoShort } from './months.js';
+import { validateHabitList, validateHabit, validateTarget, MAX_HABITS, MAX_GOALS, MAX_GOALS_STORED, MAX_SHORT, autoShort } from './months.js';
+import { validatePlan } from './plan.js';
 import { migrate } from './migrate.js';
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -20,7 +21,7 @@ function validateMonth(k, m, errors) {
   if (m.key !== k) errors.push(`${p}.key no coincide`);
   if (!Number.isInteger(m.startDay) || m.startDay < 1 || m.startDay > monthLength(k)) errors.push(`${p}.startDay inválido`);
   if (!isStr(m.mantra)) errors.push(`${p}.mantra debe ser texto`);
-  if (!Array.isArray(m.goals) || m.goals.length > MAX_GOALS) errors.push(`${p}.goals: lista de máx. ${MAX_GOALS}`);
+  if (!Array.isArray(m.goals) || m.goals.length > MAX_GOALS_STORED) errors.push(`${p}.goals: lista de máx. ${MAX_GOALS_STORED}`);
   else m.goals.forEach((g, i) => {
     if (!isObj(g) || !isStr(g.id) || !isStr(g.text) || ![null, true, false].includes(g.done)) errors.push(`${p}.goals[${i}] inválido`);
   });
@@ -32,9 +33,15 @@ function validateMonth(k, m, errors) {
     if (!isDateKey(dk) || monthKey(dk) !== k) { errors.push(`${p}.days: fecha inválida ${dk}`); continue; }
     if (!isObj(d) || !isStr(d.note) || !isObj(d.checks)) { errors.push(`${p}.days.${dk} inválido`); continue; }
     for (const v of Object.values(d.checks)) if (v !== 'full' && v !== 'min') errors.push(`${p}.days.${dk}.checks: valor "${v}" inválido`);
+    if (d.off !== undefined && d.off !== true) errors.push(`${p}.days.${dk}.off inválido`);
     if (parseKey(dk).d < m.startDay) errors.push(`${p}.days.${dk} es anterior a startDay`);
   }
   if (m.review !== null && m.review !== undefined && !isObj(m.review)) errors.push(`${p}.review inválido`);
+  errors.push(...validatePlan(m, p));
+  if (m.archived !== undefined) {
+    if (!Array.isArray(m.archived)) errors.push(`${p}.archived debe ser una lista`);
+    else m.archived.forEach((a, i) => { if (!isObj(a) || !isStr(a.name) || !Array.isArray(a.done) || a.done.some((d) => !Number.isInteger(d))) errors.push(`${p}.archived[${i}] inválido`); });
+  }
 }
 
 // Respaldo completo: valida, migra y normaliza. No toca el estado actual.
@@ -53,6 +60,19 @@ export function validateBackup(input) {
   }
   if (!isObj(s.months) || !Object.keys(s.months).length) errors.push('months vacío');
   else for (const [k, m] of Object.entries(s.months)) validateMonth(k, m, errors);
+  if (!Array.isArray(s.areas)) errors.push('areas debe ser una lista');
+  else {
+    s.areas.forEach((a, i) => { if (!isObj(a) || !isStr(a.id) || !a.id || !isStr(a.name) || !a.name.trim() || !isStr(a.emoji ?? '')) errors.push(`areas[${i}] inválida`); });
+    if (new Set(s.areas.map((a) => a?.id)).size !== s.areas.length) errors.push('areas: ids repetidos');
+  }
+  if (!isObj(s.years)) errors.push('years debe ser un objeto');
+  else for (const [y, v] of Object.entries(s.years)) {
+    if (!/^\d{4}$/.test(y)) { errors.push(`years.${y}: año inválido`); continue; }
+    if (!isObj(v) || !Array.isArray(v.goals)) { errors.push(`years.${y}.goals debe ser una lista`); continue; }
+    if (v.habitIdeas !== undefined && !Array.isArray(v.habitIdeas)) errors.push(`years.${y}.habitIdeas debe ser una lista`);
+    (v.habitIdeas || []).forEach((g, i) => { if (!isObj(g) || !isStr(g.id) || !isStr(g.areaId) || !isStr(g.text) || !['daily', 'weekly', 'monthly'].includes(g.freq)) errors.push(`years.${y}.habitIdeas[${i}] inválido`); });
+    v.goals.forEach((g, i) => { if (!isObj(g) || !isStr(g.id) || !isStr(g.areaId) || !isStr(g.text) || typeof g.done !== 'boolean') errors.push(`years.${y}.goals[${i}] inválida`); });
+  }
   if (!isObj(s.meta)) errors.push('meta ausente');
   if (errors.length) return { ok: false, errors };
   for (const m of Object.values(s.months)) { m.changeLog ||= []; m.review ??= null; }
@@ -83,7 +103,11 @@ export function describeReplace(current, incoming) {
  * JSON de Claude (§8.2). `habits` = hábitos del mes que se va a cerrar.
  * keepId acepta el id o la etiqueta corta. Devuelve una propuesta para el próximo cierre.
  */
-export function parseClaudeImport(input, habits) {
+export function parseClaudeImport(input, habits, areas = []) {
+  const areaRef = (v) => {
+    const r = String(v ?? '').trim().toLowerCase();
+    return areas.find((a) => a.id.toLowerCase() === r || a.name.toLowerCase() === r)?.id;
+  };
   const errors = [];
   let o;
   try { o = extractJson(input); } catch (e) { return { ok: false, errors: [e.message] }; }
@@ -113,9 +137,11 @@ export function parseClaudeImport(input, habits) {
           e[f] = h[f].trim();
         }
         if (e.short && e.short.length > MAX_SHORT) return errors.push(`${p}.short: máx. ${MAX_SHORT} caracteres`);
+        if (h.area !== undefined) { const a = areaRef(h.area); if (!a) return errors.push(`${p}.area "${h.area}" no existe`); e.area = a; }
         edits.push({ habitId: found.id, ...e });
       } else {
         const cand = { name: h.name, short: isStr(h.short) && h.short.trim() ? h.short.trim().toUpperCase() : autoShort(h.name), min: h.min, target: h.target ?? { type: 'daily' } };
+        if (h.area !== undefined) { const a = areaRef(h.area); if (!a) return errors.push(`${p}.area "${h.area}" no existe`); cand.area = a; }
         const t = validateTarget(cand.target);
         const e = validateHabit(cand);
         if (t || e) return errors.push(`${p}: ${e || t}`);

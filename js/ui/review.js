@@ -5,6 +5,7 @@ import { closeStatus, snoozeClose, applyClose, validateHabitList, MAX_HABITS, MA
 import { monthlySummary, DECISION_LABEL } from '../core/summary.js';
 import { parseClaudeImport, describeProposal } from '../core/importer.js';
 import { chartSvg } from './month.js';
+import { allIdeas, IDEA_FREQ } from '../core/years.js';
 import { habitForm } from './onboarding.js';
 
 const pctText = (p) => (p === null || p === undefined ? '—' : `${Math.round(p * 100)} %`);
@@ -36,7 +37,7 @@ function applyProposal(p, prop, habits) {
     const d = p.decisions[e.habitId];
     if (!d) continue;
     if (e.min) d.min = e.min;
-    if (e.name || e.short) d.edit = { name: e.name, short: e.short };
+    if (e.name || e.short || e.area) d.edit = { name: e.name, short: e.short, ...(e.area ? { area: e.area } : {}) };
     d.claude = true;
   }
   const room = MAX_HABITS - habits.length;
@@ -130,10 +131,11 @@ export function renderReview(root, ctx) {
       ...cards,
       ...p.added.map((a, i) => h('div', {}, a.claude && h('p', { class: 'sugg' }, 'Propuesto por Claude'), habitForm(a, () => { p.added.splice(i, 1); draw(); }))),
       total < MAX_HABITS && h('button', { class: 'btn block', type: 'button', onClick: () => { p.added.push(blankHabit()); draw(); } }, '+ Agregar hábito'),
+      total < MAX_HABITS && ideasBlock(),
       h('details', { class: 'card', style: { marginTop: '12px' } }, h('summary', {}, 'Pegar ajustes de Claude'),
         pasteArea, pasteErr,
         h('button', { class: 'btn', type: 'button', style: { marginTop: '8px' }, onClick: () => {
-          const r = parseClaudeImport(pasteArea.value, m.habits);
+          const r = parseClaudeImport(pasteArea.value, m.habits, state.areas);
           clear(pasteErr);
           if (!r.ok) { pasteErr.append(...r.errors.map((e) => h('p', { class: 'err-text' }, cap(e)))); return; }
           applyProposal(p, r.proposal, m.habits);
@@ -149,6 +151,20 @@ export function renderReview(root, ctx) {
         if (errors.length) { errBox.append(...errors.map((e) => h('p', { class: 'err-text' }, cap(e)))); return false; }
       }),
     ];
+  }
+
+  // Plan anual de hábitos (Año → Metas por área): un toque lo agrega prellenado.
+  function ideasBlock() {
+    const used = new Set(resultingHabits(m, p).map((x) => (x.name || '').trim().toLowerCase()));
+    const ideas = allIdeas(state, nextKey.slice(0, 4)).filter((x) => !used.has(x.text.toLowerCase()));
+    if (!ideas.length) return null;
+    const target = (f) => (f === 'weekly' ? { type: 'weekly', count: 1 } : f === 'monthly' ? { type: 'monthly', count: 1 } : { type: 'daily' });
+    return h('div', { style: { marginTop: '10px' } },
+      h('p', { class: 'field-label' }, 'De tu plan anual'),
+      h('div', { class: 'chips' }, ideas.map((x) => h('button', { class: 'chip', type: 'button',
+        'aria-label': `Agregar ${x.text} (${x.area.name}, ${IDEA_FREQ[x.freq].toLowerCase()})`,
+        onClick: () => { p.added.push({ ...blankHabit(), name: x.text, area: x.areaId, target: target(x.freq) }); draw(); } },
+      `${x.area.emoji ? `${x.area.emoji} ` : ''}${x.text}`))));
   }
 
   function step3() {

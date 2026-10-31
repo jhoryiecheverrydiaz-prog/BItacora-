@@ -15,3 +15,13 @@ export const HABITS = [
 export function starter(opts = {}) {
   return createStarterState({ profile: PROFILE, startKey: '2026-10-28', today: '2026-10-29', habits: HABITS, mantra: 'Poco y siempre', goals: ['Renovar pasaporte'], ...opts });
 }
+
+// Mismo estado en el esquema v1 (antes de áreas y metas anuales).
+export function asV1(state) {
+  const s = structuredClone(state);
+  delete s.areas;
+  delete s.years;
+  for (const m of Object.values(s.months)) for (const h of m.habits) delete h.area;
+  s.schemaVersion = 1;
+  return s;
+}

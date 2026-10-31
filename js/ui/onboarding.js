@@ -1,6 +1,6 @@
 import { h, clear, field, toast, copyText } from './dom.js';
 import { addDays, formatShort, formatLong, diffDays, WEEKDAYS } from '../core/dates.js';
-import { createStarterState, autoShort, validateHabitList, MAX_HABITS, RECOMMENDED_START, MAX_SHORT, LOOKBACK_DAYS, newId } from '../core/months.js';
+import { createStarterState, autoShort, validateHabitList, MAX_HABITS, RECOMMENDED_START, MAX_SHORT, MAX_MONTHLY, LOOKBACK_DAYS, newId } from '../core/months.js';
 
 export const LINE_MODES = {
   bueno: { label: 'Algo bueno que me pasó', placeholder: 'Algo bueno de hoy…' },
@@ -254,27 +254,45 @@ export function renderOnboarding(root, ctx) {
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+// Áreas disponibles para el selector del formulario (app.js las fija en cada render).
+let AREAS = [];
+export function useAreas(list) { AREAS = list || []; }
+
+const FREQ_LABEL = { daily: 'Diaria', weekly: 'X por semana', monthly: 'X por mes' };
+
 // Mini-formulario de hábito (onboarding, cierre, emergencia). Muta `x`.
 export function habitForm(x, onRemove, onChange = () => {}) {
   const shortIn = h('input', { class: 'input', value: x.short || autoShort(x.name), maxlength: MAX_SHORT, autocapitalize: 'characters',
     onInput: (e) => { x.short = e.target.value.toUpperCase(); x.shortTouched = true; onChange(); } });
-  const weekly = x.target?.type === 'weekly';
-  const countSel = h('select', { class: 'input', 'aria-label': 'Veces por semana', onChange: (e) => { x.target = { type: 'weekly', count: Number(e.target.value) }; onChange(); } },
-    [1, 2, 3, 4, 5, 6].map((n) => h('option', { value: n, selected: weekly && x.target.count === n }, `${n} por semana`)));
-  const countField = field('Veces por semana', countSel);
-  countField.hidden = !weekly;
+  const type = x.target?.type || 'daily';
+  const countSel = h('select', { class: 'input', 'aria-label': 'Veces', onChange: (e) => { x.target = { type: x.target.type, count: Number(e.target.value) }; onChange(); } });
+  const fillCounts = () => {
+    clear(countSel);
+    const t = x.target?.type;
+    const max = t === 'monthly' ? MAX_MONTHLY : 6;
+    for (let n = 1; n <= max; n++) countSel.append(h('option', { value: n, selected: x.target?.count === n }, `${n} por ${t === 'monthly' ? 'mes' : 'semana'}`));
+  };
+  fillCounts();
+  const countField = field('¿Cuántas veces?', countSel);
+  countField.hidden = type === 'daily';
+  const areaSel = AREAS.length && field('Área de vida', h('select', { class: 'input', onChange: (e) => { x.area = e.target.value || null; onChange(); } },
+    h('option', { value: '', selected: !x.area }, 'Sin área'),
+    AREAS.map((a) => h('option', { value: a.id, selected: x.area === a.id }, `${a.emoji ? `${a.emoji} ` : ''}${a.name}`))));
   return h('div', { class: 'card' },
     field('Nombre', h('input', { class: 'input', value: x.name, maxlength: 40, placeholder: 'Ej.: Leer',
       onInput: (e) => { x.name = e.target.value; if (!x.shortTouched) { x.short = autoShort(x.name); shortIn.value = x.short; } onChange(); } })),
     h('div', { class: 'row' },
       field(`Etiqueta (≤ ${MAX_SHORT})`, shortIn),
       field('Frecuencia', h('select', { class: 'input', onChange: (e) => {
-        x.target = e.target.value === 'daily' ? { type: 'daily' } : { type: 'weekly', count: Number(countSel.value) || 4 };
-        countField.hidden = x.target.type === 'daily';
+        const t = e.target.value;
+        x.target = t === 'daily' ? { type: 'daily' } : { type: t, count: t === 'weekly' ? 4 : 4 };
+        fillCounts();
+        countField.hidden = t === 'daily';
         onChange();
-      } }, h('option', { value: 'daily', selected: !weekly }, 'Diaria'), h('option', { value: 'weekly', selected: weekly }, 'X por semana'))),
+      } }, Object.entries(FREQ_LABEL).map(([k, v]) => h('option', { value: k, selected: type === k }, v)))),
     ),
     countField,
+    areaSel,
     field('Versión mínima (obligatoria)', h('input', { class: 'input', value: x.min, maxlength: 80, placeholder: 'Ej.: 2 páginas',
       onInput: (e) => { x.min = e.target.value; onChange(); } }), 'Lo mínimo que cuenta como cumplido en un día malo.'),
     onRemove && h('button', { class: 'linklike small', type: 'button', onClick: onRemove }, 'Quitar este hábito'),
