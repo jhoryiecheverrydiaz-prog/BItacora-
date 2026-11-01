@@ -1,6 +1,6 @@
 import { todayKey, monthKey, parseKey, addDays, addMonths, diffDays, weekdayOf, isDateKey } from './dates.js';
 import { isBlank, isDone, isOff } from './stats.js';
-import { CURRENT_VERSION, DEFAULT_AREAS, DEFAULT_GAME } from './migrate.js';
+import { CURRENT_VERSION, DEFAULT_AREAS, DEFAULT_GAME, DEFAULT_PREFS } from './migrate.js';
 
 export const MAX_HABITS = 5;
 export const RECOMMENDED_START = 3;
@@ -13,6 +13,10 @@ export const BACKUP_EVERY_DAYS = 7;
 export const MAX_MONTHLY = 20;
 // Paleta fija de 5, contraste AA sobre papel claro y oscuro (se ajusta en CSS por índice)
 export const PALETTE = ['c1', 'c2', 'c3', 'c4', 'c5'];
+// Colores elegibles a mano (los 5 de la paleta + 3 extra).
+export const COLORS = [...PALETTE, 'c6', 'c7', 'c8'];
+export const WHEN = ['am', 'pm', 'night'];
+const MAX_EXTRA = 80;
 
 export function newId() {
   const c = globalThis.crypto;
@@ -35,7 +39,7 @@ export function emptyState() {
     areas: structuredClone(DEFAULT_AREAS),
     years: {},
     months: {},
-    meta: { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null, game: { ...DEFAULT_GAME } },
+    meta: { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null, game: { ...DEFAULT_GAME }, prefs: structuredClone(DEFAULT_PREFS), seenVersion: null, season: null },
   };
 }
 
@@ -56,7 +60,31 @@ export function validateHabit(h) {
   if (h.area !== undefined && h.area !== null && typeof h.area !== 'string') return `"${h.name}": área inválida`;
   if (h.note !== undefined && typeof h.note !== 'string') return `"${h.name}": la nota debe ser texto`;
   const t = validateTarget(h.target);
-  return t ? `"${h.name}": ${t}` : null;
+  if (t) return `"${h.name}": ${t}`;
+  return validateExtras(h);
+}
+
+// Campos opcionales de rutina (v4): momento del día, intención "cuando…", premio, apilado, ícono, días, color.
+export function validateExtras(h) {
+  const n = `"${h.name}"`;
+  if (h.when != null && !WHEN.includes(h.when)) return `${n}: momento del día inválido`;
+  for (const f of ['cue', 'bundle']) if (h[f] != null && (typeof h[f] !== 'string' || h[f].length > MAX_EXTRA)) return `${n}: ${f} debe ser texto de hasta ${MAX_EXTRA}`;
+  if (h.after != null && typeof h.after !== 'string') return `${n}: "después de" inválido`;
+  if (h.icon != null && (typeof h.icon !== 'string' || [...h.icon].length > 4)) return `${n}: ícono inválido`;
+  if (h.days != null && (!Array.isArray(h.days) || h.days.some((d) => !Number.isInteger(d) || d < 0 || d > 6))) return `${n}: días inválidos`;
+  if (h.color != null && !COLORS.includes(h.color)) return `${n}: color inválido`;
+  return null;
+}
+
+// Copia solo los extras con valor (no deja claves vacías en el modelo).
+export function pickExtras(src) {
+  const out = {};
+  if (WHEN.includes(src.when)) out.when = src.when;
+  for (const f of ['cue', 'bundle']) if (typeof src[f] === 'string' && src[f].trim()) out[f] = src[f].trim().slice(0, MAX_EXTRA);
+  if (typeof src.after === 'string' && src.after) out.after = src.after;
+  if (typeof src.icon === 'string' && src.icon.trim()) out.icon = [...src.icon.trim()].slice(0, 4).join('');
+  if (Array.isArray(src.days) && src.days.length) out.days = [...new Set(src.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
+  return out;
 }
 
 export function validateHabitList(list) {
@@ -78,6 +106,7 @@ export function makeHabit(input, colorIndex = 0) {
     target: copyTarget(input.target),
     area: input.area || null,
     ...(input.note ? { note: String(input.note).trim().slice(0, 140) } : {}),
+    ...pickExtras(input),
     level: input.level || 1,
     color: input.color || PALETTE[colorIndex % PALETTE.length],
   };
@@ -187,7 +216,7 @@ export function applyClose(state, key, plan, today, nowIso = new Date().toISOStr
     if (d.decision === 'remove') continue;
     if (d.decision === 'replace') { next.push(makeHabit({ ...d.habit, id: undefined, color: h.color })); continue; }
     const level = d.decision === 'up' ? h.level + 1 : d.decision === 'down' ? Math.max(1, h.level - 1) : h.level;
-    next.push({ ...h, target: copyTarget(h.target), min: (d.min ?? h.min).trim(), level, ...(d.habit ? pickEditable(d.habit) : {}) });
+    next.push(dropUndefined({ ...h, target: copyTarget(h.target), min: (d.min ?? h.min).trim(), level, ...(d.habit ? pickEditable(d.habit) : {}) }));
   }
   for (const a of plan.added || []) next.push(makeHabit({ ...a, id: undefined }));
   assertHabits(next);
@@ -227,8 +256,17 @@ function pickEditable(h) {
   for (const f of ['name', 'short', 'min']) if (typeof h[f] === 'string' && h[f].trim()) out[f] = f === 'short' ? h[f].trim().toUpperCase() : h[f].trim();
   if ('area' in h) out.area = h.area || null;
   if (typeof h.note === 'string') out.note = h.note.trim().slice(0, 140);
+  if (EXTRA_KEYS.some((k) => k in h)) Object.assign(out, Object.fromEntries(EXTRA_KEYS.map((k) => [k, undefined])), pickExtras(h));
+  if (COLORS.includes(h.color)) out.color = h.color;
   return out;
 }
+
+function dropUndefined(o) {
+  for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k];
+  return o;
+}
+
+const EXTRA_KEYS = ['when', 'cue', 'bundle', 'after', 'icon', 'days'];
 
 // --- Registro diario ---
 
@@ -245,7 +283,20 @@ function ensureDay(month, key) {
 
 function cleanupDay(month, key) {
   const d = month.days[key];
-  if (d && !d.note && !d.off && !Object.keys(d.checks).length) delete month.days[key];
+  if (!d) return;
+  if (d.at) {
+    for (const id of Object.keys(d.at)) if (!d.checks[id]) delete d.at[id];
+    if (!Object.keys(d.at).length) delete d.at;
+  }
+  if (d.star && !d.note) delete d.star;
+  if (!d.note && !d.off && !Object.keys(d.checks).length) delete month.days[key];
+}
+
+// Hora local en que se marcó (para aprender tu horario real). hm = 'HH:MM' o null si se corrige otro día.
+function stamp(day, habitId, value, hm) {
+  if (!value || !hm) return;
+  if (!/^\d{2}:\d{2}$/.test(hm)) return;
+  day.at = { ...(day.at || {}), [habitId]: hm };
 }
 
 // Día libre (descanso, enfermedad, viaje): no cuenta en lo esperado ni en días registrados.
@@ -259,7 +310,7 @@ export function toggleDayOff(state, key) {
   return !!month.days[key]?.off;
 }
 
-export function toggleCheck(state, key, habitId) {
+export function toggleCheck(state, key, habitId, hm = null) {
   const month = state.months[monthKey(key)];
   if (!dayIsInRange(month, key)) throw new Error('día fuera del mes registrado');
   if (month.review) throw new Error('mes cerrado: solo se edita la nota');
@@ -267,12 +318,13 @@ export function toggleCheck(state, key, habitId) {
   const day = ensureDay(month, key);
   const v = cycleValue(day.checks[habitId]);
   if (v) day.checks[habitId] = v; else delete day.checks[habitId];
+  if (v === 'full') stamp(day, habitId, v, hm);
   cleanupDay(month, key);
   return v;
 }
 
 // Pone un estado directo (gesto de mantener presionado = mínimo). value: 'full' | 'min' | null.
-export function setCheck(state, key, habitId, value) {
+export function setCheck(state, key, habitId, value, hm = null) {
   if (value !== null && value !== 'full' && value !== 'min') throw new Error('estado inválido');
   const month = state.months[monthKey(key)];
   if (!dayIsInRange(month, key)) throw new Error('día fuera del mes registrado');
@@ -280,8 +332,63 @@ export function setCheck(state, key, habitId, value) {
   if (!month.habits.some((h) => h.id === habitId)) throw new Error('hábito no existe en este mes');
   const day = ensureDay(month, key);
   if (value) day.checks[habitId] = value; else delete day.checks[habitId];
+  stamp(day, habitId, value, hm);
   cleanupDay(month, key);
   return value || undefined;
+}
+
+// Marca con `value` todos los hábitos sin marcar del día. Devuelve los ids cambiados (para deshacer).
+export function markRemaining(state, key, value = 'full', hm = null) {
+  const month = state.months[monthKey(key)];
+  if (!dayIsInRange(month, key)) throw new Error('día fuera del mes registrado');
+  if (month.review) throw new Error('mes cerrado: solo se edita la nota');
+  const changed = [];
+  for (const h of month.habits) {
+    if (isDone(month.days[key]?.checks?.[h.id])) continue;
+    setCheck(state, key, h.id, value, hm);
+    changed.push(h.id);
+  }
+  return changed;
+}
+
+// "Igual que ayer": copia las marcas del día anterior (solo hábitos que existen en este mes).
+export function copyPreviousDay(state, key) {
+  const month = state.months[monthKey(key)];
+  if (!dayIsInRange(month, key)) throw new Error('día fuera del mes registrado');
+  if (month.review) throw new Error('mes cerrado: solo se edita la nota');
+  const prevKey = addDays(key, -1);
+  const prev = state.months[monthKey(prevKey)]?.days?.[prevKey];
+  if (!prev || !Object.keys(prev.checks || {}).length) throw new Error('el día anterior no tiene marcas');
+  let n = 0;
+  for (const h of month.habits) {
+    const v = prev.checks[h.id];
+    if (isDone(v)) { setCheck(state, key, h.id, v); n++; }
+  }
+  return n;
+}
+
+// Nota destacada (★): aparece primero en el cierre del mes.
+export function toggleStar(state, key) {
+  const month = state.months[monthKey(key)];
+  const day = month?.days?.[key];
+  if (!day?.note) throw new Error('solo se destaca un día con nota');
+  if (day.star) delete day.star; else day.star = true;
+  return !!day.star;
+}
+
+// Días libres fijos (Ajustes): marca hoy como libre una sola vez si el día está vacío.
+// Si lo desmarcas a mano, no se vuelve a marcar ese día.
+export function applyFixedOff(state, today) {
+  const prefs = state.meta?.prefs;
+  if (!prefs?.offDays?.length || state.meta.autoOffOn === today) return false;
+  const month = state.months[monthKey(today)];
+  if (!dayIsInRange(month, today) || month.review) return false;
+  state.meta.autoOffOn = today;
+  if (!prefs.offDays.includes(weekdayOf(today))) return false;
+  const day = month.days[today];
+  if (day && (day.off || !isBlank(day))) return false;
+  ensureDay(month, today).off = true;
+  return true;
 }
 
 export function setNote(state, key, text) {
@@ -320,6 +427,7 @@ export function editHabitText(state, mKey, habitId, fields) {
   const others = m.habits.filter((x) => x.id !== habitId).map((x) => x.short);
   if (others.includes(candidate.short)) throw new Error('etiqueta corta repetida');
   Object.assign(h, candidate);
+  dropUndefined(h);
 }
 
 // Cambio de emergencia: agregar/quitar a mitad de mes, con registro.

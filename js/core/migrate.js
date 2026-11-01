@@ -1,5 +1,5 @@
 // Migraciones del esquema. Cada cambio del modelo agrega una entrada vN → vN+1 y su test.
-export const CURRENT_VERSION = 3;
+export const CURRENT_VERSION = 4;
 
 // Áreas de vida por defecto (las de la hoja "Metas" del tracker en Sheets). Ids estables.
 export const DEFAULT_AREAS = [
@@ -12,6 +12,20 @@ export const DEFAULT_AREAS = [
 ];
 
 export const DEFAULT_GAME = { enabled: false, seen: null };
+
+// Preferencias de apariencia y rutina (v4). Todas con valor por defecto: la app se ve igual que antes.
+export const DEFAULT_PREFS = {
+  paper: 'grid', // grid | lines | dots | plain
+  tone: 'cream', // cream | white | gray
+  size: 'm', // m | l | xl
+  density: 'comfy', // comfy | compact
+  startTab: 'hoy', // hoy | mes | sistema
+  sound: false, // sonido de lápiz al marcar
+  nightWarm: true, // tono cálido de 21:00 a 6:00
+  areaAccent: false, // el acento toma el color del área más trabajada del mes
+  offDays: [], // días libres fijos (0 = domingo … 6 = sábado)
+  order: 'smart', // smart (por momento y hora real) | manual
+};
 
 // { [desde]: (state) => state en versión desde+1 }
 export const MIGRATIONS = {
@@ -27,6 +41,13 @@ export const MIGRATIONS = {
   2: (s) => {
     s.meta = { ...s.meta, game: { ...DEFAULT_GAME } };
     s.schemaVersion = 3;
+    return s;
+  },
+  // v4: preferencias (apariencia, días libres fijos, orden), versión vista (novedades) y temporada ligera.
+  // Campos opcionales nuevos, sin migración de datos: habit.when|cue|bundle|after|icon|days, day.at, day.star.
+  3: (s) => {
+    s.meta = { ...s.meta, prefs: { ...structuredClone(DEFAULT_PREFS), ...(s.meta?.prefs || {}) }, seenVersion: s.meta?.seenVersion ?? null, season: s.meta?.season ?? null };
+    s.schemaVersion = 4;
     return s;
   },
 };
