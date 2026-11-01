@@ -1,5 +1,6 @@
 import { h, svg, clear, modal, confirmModal, toast, field } from './dom.js';
-import { MONTHS_SHORT, monthTitle, monthKey, mondayIndex, formatShort } from '../core/dates.js';
+import { MONTHS_SHORT, monthTitle, monthKey, mondayIndex, formatShort, formatLong } from '../core/dates.js';
+import { friendly } from './errors.js';
 import {
   yearStats, knownYears, addYearGoal, toggleYearGoal, editYearGoal, removeYearGoal,
   addArea, editArea, removeArea, addHabitIdea, removeHabitIdea, areaLabel,
@@ -31,7 +32,7 @@ export function renderYear(root, ctx) {
     return v === null ? null : String(v);
   }
 
-  const run = (fn) => { try { fn(); ctx.save(); draw(); } catch (e) { toast(cap(e.message), { duration: 3500 }); } };
+  const run = (fn) => { try { fn(); ctx.save(); draw(); } catch (e) { toast(friendly(e), { duration: 3500 }); } };
 
   async function newGoal(areaId) {
     const t = await askText('Nueva meta del año', { label: 'Meta', placeholder: 'Ej.: Correr una media maratón' });
@@ -101,14 +102,47 @@ export function renderYear(root, ctx) {
     const cells = days.map((d, i) => {
       const idx = first + i;
       const label = `${formatShort(d.key)}: ${d.off ? 'día libre' : pctText(d.pct)}`;
-      return svg('rect', { x: Math.floor(idx / 7) * (C + G), y: (idx % 7) * (C + G), width: C, height: C, rx: 2, class: `hm l${d.off ? 'off' : lvl(d.pct)}` }, svg('title', {}, label));
+      return svg('rect', { x: Math.floor(idx / 7) * (C + G), y: (idx % 7) * (C + G), width: C, height: C, rx: 2, class: `hm l${d.off ? 'off' : lvl(d.pct)}`, 'data-i': i }, svg('title', {}, label));
     });
+    // Tocar un día muestra su dato y permite saltar a ese mes.
+    const tip = h('div', { class: 'hm-tip muted small', 'aria-live': 'polite' }, 'Toca un día para ver su registro.');
+    const onPick = (e) => {
+      const i = e.target?.getAttribute?.('data-i');
+      if (i === null || i === undefined) return;
+      const d = days[Number(i)];
+      const note = state.months[monthKey(d.key)]?.days?.[d.key]?.note;
+      clear(tip).append(h('span', {}, `${formatLong(d.key)}: ${d.off ? 'día libre' : pctText(d.pct)}${note ? ` · “${note}”` : ''}`),
+        state.months[monthKey(d.key)] && h('button', { class: 'linklike small', type: 'button', onClick: () => { setViewMonth(monthKey(d.key)); ctx.go('mes'); } }, 'Ver mes'));
+    };
     const withData = days.filter((d) => d.pct !== null);
     const full = withData.filter((d) => d.pct === 1).length;
     return h('div', { class: 'section' },
       h('h2', {}, 'Mapa del año'),
-      h('div', { class: 'hm-wrap', tabindex: '0', role: 'group', 'aria-label': `Mapa de calor de ${viewYear}` }, svg('svg', { class: 'heatmap', viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': `Mapa de calor de ${viewYear}: ${withData.length} días con datos, ${full} al 100 %` }, ...cells)),
+      h('div', { class: 'hm-wrap', tabindex: '0', role: 'group', 'aria-label': `Mapa de calor de ${viewYear}`, onClick: onPick }, svg('svg', { class: 'heatmap', viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': `Mapa de calor de ${viewYear}: ${withData.length} días con datos, ${full} al 100 %` }, ...cells)),
+      tip,
       h('div', { class: 'hm-legend muted small', 'aria-hidden': 'true' }, 'Menos', [1, 2, 3, 4, 5].map((l) => h('i', { class: `hm-key l${l}` })), 'Más', h('i', { class: 'hm-key loff' }), 'Libre'));
+  }
+
+  // Buscar en todas las líneas del día (todos los meses), con salto al mes.
+  function searchBlock() {
+    const results = h('ul', { class: 'list compact search-results' });
+    const input = h('input', { class: 'input', type: 'search', placeholder: 'Buscar en tus notas…', enterkeyhint: 'search', 'aria-label': 'Buscar en las notas', onInput: (e) => {
+      const q = e.target.value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      clear(results);
+      if (q.length < 2) return;
+      const hits = [];
+      for (const mk of Object.keys(state.months).sort().reverse()) {
+        for (const [k, d] of Object.entries(state.months[mk].days).sort((a, b) => (a[0] < b[0] ? 1 : -1))) {
+          const note = d.note || '';
+          if (note.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) hits.push({ k, note, star: d.star });
+          if (hits.length >= 30) break;
+        }
+        if (hits.length >= 30) break;
+      }
+      results.append(...(hits.length ? hits.map((x) => h('li', {}, h('button', { class: 'linklike-plain search-hit', type: 'button', onClick: () => { setViewMonth(monthKey(x.k)); ctx.go('mes'); } },
+        h('span', { class: 'muted small' }, `${formatShort(x.k)}${x.star ? ' ★' : ''} · `), x.note))) : [h('li', { class: 'muted small' }, 'Sin resultados.')]));
+    } });
+    return h('div', { class: 'section' }, h('h2', {}, 'Buscar en tus notas'), input, results);
   }
 
   function areaCard(a, ys) {
@@ -160,6 +194,7 @@ export function renderYear(root, ctx) {
         h('div', { class: 'stat' }, h('b', {}, pctText(ys.avgPct)), h('span', {}, 'Cumplimiento promedio de los meses')),
         h('div', { class: 'stat' }, h('b', {}, ys.goalsTotal ? `${ys.goalsDone}/${ys.goalsTotal}` : '—'), h('span', {}, 'Metas del año cumplidas'))),
       heatmap(),
+      searchBlock(),
       monthsBlock(ys),
       h('div', { class: 'section' },
         h('h2', {}, 'Metas por área'),

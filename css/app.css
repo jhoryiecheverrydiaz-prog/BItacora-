@@ -633,3 +633,31 @@ body.sys-mode .tabs a.on { color: #3fa9ff; }
 }
 .float-text.xp { color: #c9902a; }
 @keyframes float-up { 0% { opacity: 0; transform: translate(-50%, 6px) scale(0.8); } 20% { opacity: 1; transform: translate(-50%, -8px) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -48px) scale(1); } }
+
+/* --- Mes / Año v2.3 --- */
+.sheet { content-visibility: auto; contain-intrinsic-size: auto 1400px; }
+.page-dots { position: relative; }
+.page-dots button[aria-current="true"]::after { background: var(--rule-strong); }
+.page-dots::before {
+  content: ""; position: absolute; top: 12px; left: 18px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  transform: translateX(calc(var(--pos, 0) * 50px)); pointer-events: none;
+}
+.chart .path.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: chart-draw 0.9s var(--ease-out) 0.1s forwards; }
+@keyframes chart-draw { to { stroke-dashoffset: 0; } }
+.chart .cursor { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 2; }
+.chart { touch-action: pan-y; }
+.chart-tip { min-height: 1.4em; margin: 0 0 8px; font-variant-numeric: tabular-nums; }
+.cell { width: 44px; height: 38px; }
+.cell::before { width: 22px; height: 22px; }
+.inline-edit { display: grid; grid-template-columns: 26px 1fr; gap: 6px 10px; align-items: center; padding: 6px 2px 10px; }
+.inline-edit .num { text-align: right; color: var(--accent); font-weight: 700; font-size: 0.9rem; }
+.inline-edit .chips { grid-column: 2; margin: 0; }
+.inline-note { font-family: var(--font-hand); font-size: 18px; min-height: 42px; }
+.primary-chip { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.star-tag { flex: none; color: var(--c5); font-size: 0.9rem; }
+.empty-card { border: 1.5px dashed var(--rule-strong); border-radius: 12px; padding: 10px 12px; margin: 0 0 8px; }
+.empty-card p { margin: 0 0 6px; }
+.hm-tip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 44px; margin-top: 4px; }
+.hm { cursor: pointer; }
+.search-results { margin-top: 6px; }
+.search-hit { font-family: var(--font-hand); width: 100%; }
