@@ -54,6 +54,7 @@ const ctx = {
   saveNow() { return store.saveNow(ctx.state); },
   async replaceState(next) {
     ctx.state = next;
+    rev++;
     await store.saveNow(next);
     render();
   },
@@ -87,7 +88,7 @@ const ctx = {
 function checkGame() {
   const s = ctx.state;
   if (!s?.meta?.game?.enabled || !s.profile) return;
-  const g = gameStats(s, ctx.today);
+  const g = ctx.gameStats();
   const news = progressNews(g, s.meta.game.seen);
   if (!s.meta.game.seen || news.length) {
     s.meta.game.seen = seenFrom(g);
@@ -96,7 +97,47 @@ function checkGame() {
   if (news.length) toast(`[SISTEMA] ${news.join(' · ')}`, { duration: 4000 });
 }
 
-store.onSaved(() => { flashSaved(); checkGame(); });
+// Revisión del estado: sube con cada guardado. Sirve para memorizar cálculos caros (Sistema).
+let rev = 0;
+const memoCache = new Map();
+ctx.memo = (name, fn) => {
+  const k = `${name}|${rev}|${ctx.today}`;
+  if (!memoCache.has(k)) {
+    for (const key of memoCache.keys()) if (key.startsWith(`${name}|`)) memoCache.delete(key);
+    memoCache.set(k, fn());
+  }
+  return memoCache.get(k);
+};
+ctx.gameStats = () => ctx.memo('game', () => gameStats(ctx.state, ctx.today));
+const origSave = ctx.save;
+ctx.save = () => { rev++; origSave(); };
+
+store.onSaved(() => { flashSaved(); checkGame(); saveShell(); });
+
+// Arranque instantáneo: guarda una foto mínima de Hoy (nombres y estados) para pintarla
+// en el primer cuadro, antes de que responda IndexedDB. Solo en este teléfono.
+function saveShell() {
+  try {
+    const s = ctx.state;
+    const m = s?.months?.[ctx.today.slice(0, 7)];
+    if (!m || !s.profile) return;
+    const checks = m.days[ctx.today]?.checks || {};
+    localStorage.setItem('hoy-shell', JSON.stringify({ d: ctx.today, rows: m.habits.map((x) => [x.name, x.color, checks[x.id] || '']) }));
+  } catch { /* sin almacenamiento */ }
+}
+
+function paintShell() {
+  let snap = null;
+  try { snap = JSON.parse(localStorage.getItem('hoy-shell') || 'null'); } catch { /* nada */ }
+  const page = h('section', { class: 'page skeleton', 'aria-busy': 'true' });
+  if (snap && snap.d === ctx.today && (!location.hash || location.hash.startsWith('#hoy'))) {
+    page.append(h('div', { class: 'sk sk-title' }), h('div', { class: 'sk sk-line' }),
+      ...snap.rows.map(([name, color, v]) => h('div', { class: 'shell-row' }, h('span', { class: `box ${v}`, 'data-c': color }), name)));
+  } else {
+    page.append(h('div', { class: 'sk sk-title' }), h('div', { class: 'sk sk-line' }), h('div', { class: 'sk sk-row' }), h('div', { class: 'sk sk-row' }), h('div', { class: 'sk sk-row' }));
+  }
+  view.append(page);
+}
 
 // Rutas: #hoy, #mes… y accesos directos del ícono (#hoy/linea enfoca la línea del día).
 function route() {
@@ -112,6 +153,7 @@ function startTab() {
 }
 
 let lastRoute = null;
+let viewTransition = false;
 function render() {
   const t0 = performance.now();
   const keepY = window.scrollY;
@@ -152,7 +194,7 @@ function render() {
   // Cambiar de sección: entra con un fundido corto y arriba. Redibujar la misma sección: conserva el scroll.
   if (r !== lastRoute) {
     window.scrollTo(0, 0);
-    if (lastRoute && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (lastRoute && !viewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter');
     }
   } else window.scrollTo(0, keepY);
@@ -161,6 +203,9 @@ function render() {
   ctx.perf.push({ view: r, ms });
   if (ctx.perf.length > 60) ctx.perf.shift();
   if (r === 'hoy' || r === 'mes' || r === 'ano') showWhatsNew();
+  // Precalcular en reposo lo caro (Sistema) para que el siguiente toque o pestaña no espere.
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 300));
+  if (ctx.state?.meta?.game?.enabled && ctx.state.profile) idle(() => ctx.gameStats());
 }
 
 // Novedades: una vez por versión, nunca en la primera instalación ni en medio del onboarding.
@@ -180,6 +225,12 @@ async function showWhatsNew(force = false) {
 }
 
 // Tocar la pestaña en la que ya estás sube al inicio (convención de iOS), sin redibujar.
+// Las pestañas responden al apoyar el dedo (no al soltarlo): ~100 ms menos por cambio.
+tabs.addEventListener('pointerdown', (e) => {
+  const a = e.target.closest('a[data-tab]');
+  if (!a || e.button > 0 || a.dataset.tab === route()) return;
+  location.hash = a.dataset.tab;
+});
 tabs.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-tab]');
   if (a && a.dataset.tab === route()) {
@@ -243,6 +294,7 @@ function registerSW() {
 
 // --- Arranque ---
 async function boot() {
+  paintShell();
   let raw = null;
   try {
     raw = await store.load();
@@ -255,7 +307,13 @@ async function boot() {
     ctx.save();
   }
   if (ctx.state.profile && applyFixedOff(ctx.state, ctx.today)) ctx.save();
-  window.addEventListener('hashchange', render);
+  // Cambio de sección con View Transitions (Safari 18+): el título se transforma en el nuevo.
+  window.addEventListener('hashchange', () => {
+    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches && lastRoute) {
+      viewTransition = true;
+      document.startViewTransition(() => { render(); viewTransition = false; });
+    } else render();
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { store.flush(); return; }
     const t = computeToday();
@@ -271,6 +329,7 @@ async function boot() {
 }
 
 function renderBroken(err, raw) {
+  clear(view);
   view.append(h('section', { class: 'page' },
     h('h1', {}, 'No pude leer tus datos'),
     h('p', {}, String(err.message || err)),

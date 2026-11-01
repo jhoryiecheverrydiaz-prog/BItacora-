@@ -20,10 +20,22 @@ Es una web app que se instala en el iPhone. Funciona sin internet y los datos se
 ## Uso diario (2-3 minutos)
 
 - **Hoy:** toca cada hábito para marcarlo. El ciclo es vacío → completo → mínimo. **Mantén presionado** para marcar directo el mínimo (te muestra cuál es).
-- **Cambiar de día:** desliza a los lados en Hoy, o usa la tira de días.
+- **Orden por momento del día:** lo que toca a esta hora queda arriba ("Ahora", "Más tarde", "Hoy no toca", "Hecho"). Elige el momento de cada hábito en **Ajustes → Mi rutina → Ajustar**, o deja que la app lo aprenda de la hora real en que marcas.
+- **Rutina de cada hábito:** "Cuando…" (tu señal), "Va después de" (apilar), "Solo mientras…" (premio), días fijos, ícono y color.
+- **Cambiar de día:** desliza a los lados en Hoy, o usa la tira de días. **Mantén presionado un día** para rellenarlo (igual que el anterior, todo mínimo o todo completo).
+- **Doble toque en el contador** de Hoy: marca como completo lo que falta. Todo se puede **deshacer** desde el aviso de abajo.
+- **Línea del día:** ★ para destacarla (sale primero en el cierre), palabras que más usas y "Hace un año".
 - **Línea del día:** escribe una sola cosa. Se guarda sola.
 - **Días anteriores:** usa la tira de días para corregir hasta 7 días atrás. Más atrás, edítalos desde **Mes**.
 - **Cierre de mes:** el primer día de cada mes aparece el cierre. Ahí decides qué hábitos mantener, subir, bajar, quitar o reemplazar, y se crea el mes nuevo.
+
+## Personalizar
+
+- **Ajustes → Apariencia:** papel (cuadriculado, rayado, punteado, liso), tono, tamaño del texto, modo compacto, pestaña de inicio, noche cálida, color del mes por área y sonido de lápiz.
+- **Ajustes → Mi rutina:** días libres fijos, temporada ligera (7/14/30 días en que el mínimo basta), orden de Hoy y sugerencia de hora del recordatorio según tu hora real.
+- **Mes → Hábitos → Cada hábito:** a qué hora sueles marcarlo y en qué día vas de los ~66 que suele tardar un hábito en volverse automático.
+- **Año:** buscador en todas tus notas y mapa de calor tocable.
+- **Exportar a CSV** (Ajustes → Mis datos) para abrir tu historial en Sheets o Excel.
 
 ## Año y metas por área
 

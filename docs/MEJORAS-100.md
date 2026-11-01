@@ -1,8 +1,36 @@
 # Bitácora · Las 100 mejoras para que se sienta fluida, fácil y tuya
 
 > Diagnóstico hecho sobre el código real (v2.1.0). Cada mejora respeta las reglas de la app: datos solo locales, máximo 5 hábitos, tono factual y sin presión por rachas.
-> ✅ = ya implementada en la rama `fluidez-v2.2` (v2.2.0).
 > Las ideas de **puntualidad** (hacer cada hábito a su hora) y de **facilidad de uso** se basan en estudios citados al final.
+
+## Estado de implementación (v2.3.0)
+
+**Implementadas: 98 de 100** (8 adaptadas y 1 que iOS no muestra) · **Pendientes: 2** (68 y 95)
+
+| Fase | Mejoras | Commit |
+|---|---|---|
+| v2.2 Fluidez base | 1–11, 49, 70, 71 | `fluidez-v2.2` |
+| A · Modelo v4 y lógica | base de 21–31, 40, 46, 81–83, 87, 90, 91, 94 | Fase A |
+| B · Hoy | 17, 21–23, 26–28, 41, 46, 47, 51, 57, 59, 60, 69, 74, 76, 77, 81, 82, 84, 85, 87, 91, 92, 94, 99 | Fase B |
+| C · Mes, Plan y Año | 12, 14, 16, 18, 19, 24, 48, 53, 54, 56, 66, 67, 72, 75, 83, 90 | Fase C |
+| D · Ajustes y apariencia | 25, 29, 30, 32–38, 40, 52, 55, 73, 79, 80, 93, 96, 100 | Fase D |
+| E · Onboarding, cierre y salida | 31, 39, 43, 44, 45, 58, 78, 86, 88, 89, 97, 98 | Fase E |
+| F · Rendimiento y cierre | 13, 15, 20, 42, 50, 61–65 | Fase F |
+
+**Adaptadas (hechas de otra forma o en parte):**
+- **15** View Transitions: el título de cada sección se transforma en el de la siguiente (Safari 18+); no la fila de Hoy volando a la cuadrícula.
+- **20** La fuente propia (Caveat, OFL) se usa solo donde no existe Noteworthy: en el iPhone la libreta se ve igual que antes.
+- **58** Restaurar respaldo está en el primer paso del onboarding (no en la pantalla de instalación).
+- **63/65** Se memoriza el cálculo del Sistema por guardado y se precalcula en reposo; Mes y Año no se precalculan.
+- **64** En vez de precargar la vista, las pestañas cambian al apoyar el dedo (no al soltarlo).
+- **75** La gráfica se toca o arrastra; el mapa de calor se toca (no hace falta mantener presionado).
+- **96** Se exporta a CSV con una fila por día (abre en Sheets/Excel), no al diseño exacto del tracker.
+
+**Sin efecto en iPhone:** **86** accesos directos del manifest: Android/Chrome los muestra; iOS no los soporta. El atajo `#hoy/linea` sí funciona como enlace.
+
+**Pendientes (a propósito):**
+- **68** Guardado por mes en IndexedDB: cambia el almacenamiento de todos tus datos; vale la pena solo cuando el historial sea grande. Requiere migración de almacenamiento y pruebas con respaldos reales.
+- **95** Recordatorio proactivo por WhatsApp: necesita un Cron Trigger en el Worker, una plantilla aprobada por Meta y tus secretos de Cloudflare; no se puede hacer solo desde el repositorio.
 
 ---
 

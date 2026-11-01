@@ -1,11 +1,19 @@
 /* Bitácora — libreta cuadriculada. Mobile-first, iPhone, una mano. */
 
+/* Fuente manuscrita propia (Caveat, OFL) para equipos sin Noteworthy: misma libreta en todos lados. */
+@font-face {
+  font-family: "Bitacora Mano";
+  src: url("../fonts/caveat-latin-400.woff2") format("woff2");
+  font-display: swap;
+  size-adjust: 118%;
+}
+
 :root {
   --paper: #f6f3ea;
   --paper-2: #fffdf7;
   --ink: #1d2126;
   --ink-2: #545b63;
-  --ink-3: #6e747b;
+  --ink-3: #5f656c; /* 5,3:1 sobre el papel (AA) */
   --rule: rgba(36, 72, 120, 0.09);
   --rule-strong: rgba(36, 72, 120, 0.22);
   --accent: #24548a;
@@ -19,7 +27,7 @@
   --radius: 14px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-title: ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif;
-  --font-hand: "Noteworthy", "Bradley Hand", "Segoe Print", ui-rounded, cursive;
+  --font-hand: "Noteworthy", "Bradley Hand", "Bitacora Mano", ui-rounded, cursive;
   --tabs-h: 58px;
   color-scheme: light dark;
 }
@@ -250,7 +258,7 @@ textarea.input { resize: vertical; line-height: 1.4; }
 .day-pill {
   flex: 1 0 44px; min-height: 52px; border-radius: 10px; border: 1.5px solid var(--rule-strong);
   background: var(--paper-2); display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font-size: 0.72rem; color: var(--ink-2); line-height: 1.15; padding: 4px 2px;
+  font-size: 0.76rem; color: var(--ink-2); line-height: 1.15; padding: 4px 2px;
 }
 .day-pill b { font-size: 1rem; color: var(--ink); }
 .day-pill[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
@@ -327,9 +335,9 @@ textarea.input { resize: vertical; line-height: 1.4; }
 .grid-wrap { overflow-x: auto; margin: 0 -4px; }
 .hgrid { border-collapse: collapse; margin: 0 auto; font-size: 0.8rem; }
 .hgrid th, .hgrid td { border: 1px solid var(--rule-strong); padding: 0; text-align: center; }
-.hgrid thead th { font-weight: 650; padding: 4px 2px; min-width: 44px; height: 46px; vertical-align: bottom; font-size: 0.72rem; letter-spacing: 0.02em; }
+.hgrid thead th { font-weight: 650; padding: 4px 2px; min-width: 44px; height: 46px; vertical-align: bottom; font-size: 0.76rem; letter-spacing: 0.02em; }
 .hgrid tbody th { width: 34px; color: var(--ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
-.hgrid tbody th.wd { width: 22px; font-size: 0.68rem; }
+.hgrid tbody th.wd { width: 22px; font-size: 0.75rem; }
 .hgrid .score { width: 30px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .cell {
   display: block; width: 44px; height: 30px; border: 0; padding: 0; background: transparent;
@@ -398,7 +406,7 @@ textarea.input { resize: vertical; line-height: 1.4; }
 .hgrid tr.rest th, .hgrid tr.rest td { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--rule) 5px 7px); }
 .hgrid tr.rest .score { color: var(--ink-3); font-weight: 700; }
 .log-item.rest .num { color: var(--ink-3); text-decoration: line-through; }
-.rest-tag { flex: none; font-size: 0.72rem; color: var(--ink-3); border: 1px dashed var(--rule-strong); border-radius: 6px; padding: 0 6px; }
+.rest-tag { flex: none; font-size: 0.76rem; color: var(--ink-3); border: 1px dashed var(--rule-strong); border-radius: 6px; padding: 0 6px; }
 .habits.resting .habit-row { opacity: 0.6; }
 .day-off { display: block; margin: -8px 0 16px; }
 .day-off[aria-pressed="true"] { color: var(--ink-2); }
@@ -464,7 +472,7 @@ textarea.input { resize: vertical; line-height: 1.4; }
 }
 .sys-lvl { display: grid; gap: 4px; min-width: 0; flex: 1; max-width: 300px; }
 .sys-lvl b { font: 800 2rem/1 var(--font-title); }
-.sys-label { font-size: 0.72rem; letter-spacing: 0.18em; color: var(--sys-dim); }
+.sys-label { font-size: 0.76rem; letter-spacing: 0.18em; color: var(--sys-dim); }
 .sys-small { font-size: 0.82rem; color: var(--sys-dim); }
 .sys-win {
   background: var(--sys-panel); border: 1px solid var(--sys-line); border-radius: 10px; padding: 12px 14px; margin: 0 0 14px;
@@ -708,3 +716,20 @@ details.group > .group-body { padding: 0 16px 14px; }
 .more-opts { margin-top: 6px; }
 .more-opts summary { cursor: pointer; color: var(--accent); min-height: 44px; display: flex; align-items: center; }
 .quick-close { margin-top: 18px; }
+
+/* --- Fase F: hojas arrastrables, acciones al alcance, transiciones de vista, arranque --- */
+.overlay .modal.dragging { transition: none; animation: none; }
+.overlay .modal { touch-action: pan-y; position: relative; }
+.overlay .modal::before { content: ""; display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--rule-strong); margin: -8px auto 10px; }
+@media (min-width: 700px) { .overlay .modal::before { display: none; } }
+/* 3 o más acciones: apiladas a todo el ancho, la principal queda abajo (zona del pulgar). */
+.modal-actions:has(> .btn:nth-child(3)) { flex-direction: column; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.22s; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+.today-head h1, .sheet-title, .month-bar h1, .page > h1:first-child { view-transition-name: page-title; }
+.sheet:not(:first-child) .sheet-title { view-transition-name: none; }
+.skeleton .sk { background: var(--rule-strong); border-radius: 12px; opacity: 0.55; animation: sk-pulse 1.2s ease-in-out infinite; }
+@keyframes sk-pulse { 50% { opacity: 0.3; } }
+.skeleton .sk-title { height: 34px; width: 70%; margin: 4px 0 12px; }
+.skeleton .sk-line { height: 14px; width: 50%; margin: 0 0 18px; }
+.skeleton .sk-row { height: 60px; margin: 0 0 8px; }
+.shell-row { display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 10px 14px; margin: 0 0 8px; border-radius: 14px; border: 1.5px solid var(--rule-strong); background: var(--paper-2); font-weight: 650; }

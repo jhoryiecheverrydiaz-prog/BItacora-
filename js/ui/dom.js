@@ -65,10 +65,44 @@ export function modal({ title, body, actions = [{ label: 'Entendido', value: tru
         h('button', { class: `btn ${a.kind || 'ghost'}`, type: 'button', onClick: () => close(typeof a.value === 'function' ? a.value() : a.value) }, a.label))),
     );
     const wrap = h('div', { class: 'overlay', onClick: (e) => { if (e.target === wrap && dismissible) close(null); } }, box);
+    if (dismissible) dragToDismiss(box, () => close(null));
     layer().append(wrap);
     document.addEventListener('keydown', onKey);
-    (box.querySelector('input, textarea') || box.querySelector('.btn.primary') || box.querySelector('.btn'))?.focus();
+    // Sin desplazar la hoja: en hojas largas, enfocar el botón de abajo escondía el título.
+    (box.querySelector('input, textarea') || box.querySelector('.btn.primary') || box.querySelector('.btn'))?.focus({ preventScroll: true });
   });
+}
+
+// Arrastrar la hoja hacia abajo la cierra (gesto de iOS). Solo si la hoja está arriba del todo
+// y el arrastre empieza fuera de campos de texto. Cierra por distancia (> 90 px) o por velocidad.
+function dragToDismiss(box, onClose) {
+  let y0 = null, t0 = 0, dy = 0;
+  box.addEventListener('pointerdown', (e) => {
+    if (box.scrollTop > 0 || e.target.closest('input, textarea, select, .seg, .chips, .swatches')) return;
+    y0 = e.clientY; t0 = performance.now(); dy = 0;
+  });
+  box.addEventListener('pointermove', (e) => {
+    if (y0 === null) return;
+    dy = Math.max(0, e.clientY - y0);
+    if (dy > 6) {
+      // Capturar solo cuando ya es un arrastre: así los toques en botones siguen funcionando.
+      if (!box.classList.contains('dragging')) { try { box.setPointerCapture(e.pointerId); } catch { /* nada */ } }
+      box.classList.add('dragging');
+      box.style.transform = `translateY(${dy}px)`;
+    }
+  });
+  const end = () => {
+    if (y0 === null) return;
+    const v = dy / Math.max(1, performance.now() - t0);
+    y0 = null;
+    box.classList.remove('dragging');
+    if (dy > 90 || (dy > 30 && v > 0.5)) { box.style.transform = ''; onClose(); return; }
+    box.style.transition = 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
+    box.style.transform = '';
+    setTimeout(() => { box.style.transition = ''; }, 220);
+  };
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
 }
 
 export function confirmModal(title, text, { ok = 'Confirmar', danger = false, cancel = 'Cancelar' } = {}) {

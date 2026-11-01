@@ -190,6 +190,14 @@ export function renderToday(root, ctx) {
   // ---------- Filas de hábitos (se actualizan en su sitio) ----------
   let rows = [];
   let statsEl = null;
+  let chipEl = null;
+  // Chip del Sistema: se repinta en su sitio al marcar (el cálculo está memorizado por guardado).
+  function paintChip() {
+    if (!chipEl) return;
+    const g = ctx.gameStats ? ctx.gameStats() : gameStats(state, today);
+    clear(chipEl).append(h('b', {}, `Nv. ${g.level}`), ` · Rango ${g.rank} · `, `+${g.todayGain?.xp || 0} XP hoy`,
+      h('span', { class: 'sys-chip-bar', 'aria-hidden': 'true' }, h('i', { style: { width: `${Math.round(g.progress * 100)}%` } })));
+  }
   let announceEl = null;
   const hour = () => ctx.hour();
   const weakDay = weakWeekday(state, today);
@@ -249,6 +257,7 @@ export function renderToday(root, ctx) {
       statsEl.classList.toggle('perfect', st.perfect);
       if (st.perfect && !was && !reduceMotion()) { statsEl.classList.remove('pulse'); void statsEl.offsetWidth; statsEl.classList.add('pulse'); }
     }
+    paintChip();
     const pill = page.querySelector('.day-pill[aria-pressed="true"]');
     if (pill) { pill.classList.toggle('blank', isBlank(m.days[selected])); pill.style.setProperty('--fill', pillFill(selected)); }
   }
@@ -457,12 +466,7 @@ export function renderToday(root, ctx) {
       h('header', { class: 'today-head' },
         h('h1', {}, formatLong(selected)),
         m.mantra && h('p', { class: 'mantra' }, m.mantra),
-        gameOn && (() => {
-          const g = gameStats(state, today);
-          return h('button', { class: 'sys-chip', type: 'button', onClick: () => ctx.go('sistema') },
-            h('b', {}, `Nv. ${g.level}`), ` · Rango ${g.rank} · `, `+${g.todayGain?.xp || 0} XP hoy`,
-            h('span', { class: 'sys-chip-bar', 'aria-hidden': 'true' }, h('i', { style: { width: `${Math.round(g.progress * 100)}%` } })));
-        })(),
+        gameOn && (chipEl = h('button', { class: 'sys-chip', type: 'button', onClick: () => ctx.go('sistema') })) && (paintChip(), chipEl),
         statsEl, announceEl),
       welcomeEl(),
       selected === today && setupCard(ctx, () => draw()),

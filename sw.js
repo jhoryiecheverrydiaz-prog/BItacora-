@@ -5,6 +5,7 @@ const SHELL = [
   'index.html',
   'manifest.webmanifest',
   'css/app.css',
+  'fonts/caveat-latin-400.woff2',
   'icons/icon.svg',
   'icons/icon-180.png',
   'icons/icon-192.png',
