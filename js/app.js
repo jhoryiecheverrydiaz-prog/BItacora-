@@ -1,5 +1,5 @@
 import { todayKey, isDateKey } from './core/dates.js';
-import { emptyState, closeStatus, currentMonth } from './core/months.js';
+import { emptyState, closeStatus, currentMonth, applyFixedOff } from './core/months.js';
 import { migrate } from './core/migrate.js';
 import * as store from './store.js';
 import { h, clear, toast, flashSaved, shareFile } from './ui/dom.js';
@@ -62,6 +62,11 @@ const ctx = {
     return ok;
   },
   checkForUpdate: () => checkForUpdate(true),
+  // Hora local (en debug se puede simular con ?hora=H para probar las franjas del día).
+  hour() {
+    const sim = DEBUG ? Number(new URLSearchParams(location.search).get('hora')) : NaN;
+    return Number.isInteger(sim) && sim >= 0 && sim < 24 ? sim : new Date().getHours();
+  },
   browserOk: () => ls.get('browserOk') === '1',
 };
 
@@ -80,8 +85,17 @@ function checkGame() {
 
 store.onSaved(() => { flashSaved(); checkGame(); });
 
+// Rutas: #hoy, #mes… y accesos directos del ícono (#hoy/linea enfoca la línea del día).
 function route() {
-  return location.hash.slice(1) || 'hoy';
+  const [r, sub] = (location.hash.slice(1) || '').split('/');
+  if (sub === 'linea') ctx.focusLine = true;
+  return r || startTab();
+}
+
+// Pestaña de inicio elegida en Ajustes (solo al abrir sin ruta).
+function startTab() {
+  const t = ctx.state?.meta?.prefs?.startTab;
+  return t === 'mes' || (t === 'sistema' && ctx.state?.meta?.game?.enabled) ? t : 'hoy';
 }
 
 let lastRoute = null;
@@ -197,11 +211,16 @@ async function boot() {
     ctx.state.meta.lastOpenedDate = ctx.today;
     ctx.save();
   }
+  if (ctx.state.profile && applyFixedOff(ctx.state, ctx.today)) ctx.save();
   window.addEventListener('hashchange', render);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { store.flush(); return; }
     const t = computeToday();
-    if (t !== ctx.today) { ctx.today = t; render(); }
+    if (t !== ctx.today) {
+      ctx.today = t;
+      if (ctx.state.profile && applyFixedOff(ctx.state, t)) ctx.save();
+      render();
+    }
   });
   window.addEventListener('pagehide', () => store.flush());
   render();

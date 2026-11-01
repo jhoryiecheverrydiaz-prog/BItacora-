@@ -22,6 +22,8 @@ const SHELL = [
   'js/core/sheets.js',
   'js/core/plan.js',
   'js/core/game.js',
+  'js/core/routine.js',
+  'js/ui/errors.js',
   'js/ui/dom.js',
   'js/ui/install.js',
   'js/ui/onboarding.js',

@@ -10,7 +10,11 @@ export function h(tag, props = {}, ...children) {
     else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'value') el.value = v;
     else if (k === 'checked' || k === 'disabled' || k === 'hidden' || k === 'selected') el[k] = !!v;
-    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'style' && typeof v === 'object') {
+      for (const [sk, sv] of Object.entries(v)) {
+        if (sk.startsWith('--')) el.style.setProperty(sk, String(sv)); else el.style[sk] = sv;
+      }
+    }
     else el.setAttribute(k, v === true ? '' : v);
   }
   append(el, children);
@@ -187,4 +191,39 @@ export function pickFiles(accept, { multiple = true } = {}) {
     document.body.append(input);
     input.click();
   });
+}
+
+// Sonido opcional de lápiz (Ajustes → Apariencia). Ruido corto filtrado, sin archivos.
+let audio = null;
+export function pencil() {
+  try {
+    audio = audio || new (globalThis.AudioContext || globalThis.webkitAudioContext)();
+    const len = Math.floor(audio.sampleRate * 0.07);
+    const buf = audio.createBuffer(1, len, audio.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2;
+    const src = audio.createBufferSource();
+    const filter = audio.createBiquadFilter();
+    const gain = audio.createGain();
+    filter.type = 'bandpass'; filter.frequency.value = 3200; filter.Q.value = 0.8;
+    gain.gain.value = 0.18;
+    src.buffer = buf;
+    src.connect(filter).connect(gain).connect(audio.destination);
+    src.start();
+  } catch { /* sin audio */ }
+}
+
+// "+10" que sale de un elemento (XP del Sistema). Solo transform/opacity.
+export function floatText(from, text, cls = '') {
+  try {
+    const r = from.getBoundingClientRect();
+    const el = h('span', { class: `float-text ${cls}`, 'aria-hidden': 'true', style: { left: `${r.left + r.width / 2}px`, top: `${r.top}px` } }, text);
+    document.getElementById('layer').append(el);
+    setTimeout(() => el.remove(), 900);
+  } catch { /* nada */ }
+}
+
+// Deshacer: toast con acción durante 5 s.
+export function undoToast(text, onUndo) {
+  return toast(text, { duration: 5000, action: { label: 'Deshacer', onClick: onUndo } });
 }
