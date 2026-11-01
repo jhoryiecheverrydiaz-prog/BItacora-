@@ -43,6 +43,20 @@ test('ciclo de 3 estados: vacío → full → min → vacío', () => {
   assert.throws(() => M.toggleCheck(st, '2026-10-27', id), /fuera/);
 });
 
+test('setCheck pone el estado directo (mantener presionado = mínimo)', () => {
+  const st = starter();
+  const id = st.months['2026-10'].habits[0].id;
+  assert.equal(M.setCheck(st, '2026-10-28', id, 'min'), 'min');
+  assert.equal(st.months['2026-10'].days['2026-10-28'].checks[id], 'min');
+  assert.equal(M.toggleCheck(st, '2026-10-28', id), undefined); // min → vacío, igual que el ciclo
+  assert.equal(M.setCheck(st, '2026-10-28', id, 'full'), 'full');
+  assert.equal(M.setCheck(st, '2026-10-28', id, null), undefined);
+  assert.equal(st.months['2026-10'].days['2026-10-28'], undefined);
+  assert.throws(() => M.setCheck(st, '2026-10-28', id, 'x'), /inválido/);
+  assert.throws(() => M.setCheck(st, '2026-10-27', id, 'min'), /fuera/);
+  assert.throws(() => M.setCheck(st, '2026-10-28', 'nope', 'min'), /no existe/);
+});
+
 test('regla de recuperación, también cruzando mes', () => {
   const st = starter();
   assert.equal(M.yesterdayWasBlank(st, '2026-10-28'), false); // ayer es antes del arranque

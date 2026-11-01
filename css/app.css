@@ -513,3 +513,62 @@ body.sys-mode .tabs a { color: #9fb6d6; }
 body.sys-mode .tabs a.on { color: #3fa9ff; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* --- Fluidez v2.2: movimiento con curvas físicas, presión táctil, entradas y salidas --- */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);       /* desaceleración natural */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* leve rebote, tipo resorte */
+}
+.haptic { position: fixed; left: -10px; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+
+/* Presión: todo lo tocable responde al dedo en < 100 ms */
+.btn, .chip, .opt, .seg button, .day-pill, .habit-row, .log-item, .ymonth, .goal button.gstate, .tabs a, .sys-btn, .sys-chip {
+  transition: transform 0.14s var(--ease-out), background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.btn:active:not(:disabled), .chip:active:not(:disabled), .opt:active, .seg button:active,
+.day-pill:active, .habit-row:active:not(:disabled), .ymonth:active:not(:disabled), .sys-btn:active, .sys-chip:active { transform: scale(0.97); }
+.tabs a:active { transform: scale(0.92); }
+.log-item:active { background: var(--rule); }
+
+/* Casilla: se llena con un pequeño resorte */
+.box { transition: background-color 0.18s var(--ease-out), border-color 0.18s; }
+.box.just { animation: box-pop 0.34s var(--ease-spring); }
+@keyframes box-pop { 0% { transform: scale(0.72); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.cell::before { transition: background-color 0.15s var(--ease-out), transform 0.15s var(--ease-out); }
+.cell:active::before { transform: scale(0.8); }
+
+/* Día al 100 % */
+.today-stats.perfect { color: var(--ink); font-weight: 600; }
+.today-stats.pulse { animation: perfect-pulse 0.6s var(--ease-spring); }
+@keyframes perfect-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+/* Cambio de sección y de día */
+#view.enter > * { animation: view-in 0.24s var(--ease-out); }
+@keyframes view-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.page.slide-next > * { animation: slide-next 0.26s var(--ease-out); }
+.page.slide-prev > * { animation: slide-prev 0.26s var(--ease-out); }
+@keyframes slide-next { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes slide-prev { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+
+/* Hoja modal: sube desde abajo y baja al cerrar */
+.overlay { animation: fade-in 0.2s var(--ease-out); }
+.overlay .modal { animation: sheet-up 0.32s var(--ease-out); }
+.overlay.closing { animation: fade-out 0.18s ease-in forwards; pointer-events: none; }
+.overlay.closing .modal { animation: sheet-down 0.18s ease-in forwards; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes sheet-up { from { transform: translateY(28px); opacity: 0.4; } }
+@keyframes sheet-down { to { transform: translateY(24px); } }
+
+/* Toast: entra y sale, no aparece de golpe */
+.toast { animation: toast-in 0.26s var(--ease-spring); }
+.toast.out { animation: toast-out 0.2s ease-in forwards; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 12px) scale(0.96); } }
+@keyframes toast-out { to { opacity: 0; transform: translate(-50%, 8px); } }
+
+/* Barras de progreso crecen en lugar de saltar */
+.bar > i, .sys-meter > i, .sys-chip-bar > i { transition: width 0.4s var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

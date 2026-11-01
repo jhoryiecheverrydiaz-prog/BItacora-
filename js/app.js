@@ -13,7 +13,7 @@ import { renderYear } from './ui/year.js';
 import { renderSystem } from './ui/system.js';
 import { gameStats, progressNews, seenFrom } from './core/game.js';
 
-export const APP_VERSION = '2.1.0';
+export const APP_VERSION = '2.2.0';
 
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -84,7 +84,9 @@ function route() {
   return location.hash.slice(1) || 'hoy';
 }
 
+let lastRoute = null;
 function render() {
+  const keepY = window.scrollY;
   clear(view);
   const s = ctx.state;
   useAreas(s.areas);
@@ -118,8 +120,24 @@ function render() {
 
   const views = { onboarding: renderOnboarding, cierre: renderReview, hoy: renderToday, mes: renderMonth, ajustes: renderSettings, ano: renderYear, sistema: renderSystem, sinmes: renderNoMonth };
   (views[r] || renderToday)(view, ctx);
-  window.scrollTo(0, 0);
+  // Cambiar de sección: entra con un fundido corto y arriba. Redibujar la misma sección: conserva el scroll.
+  if (r !== lastRoute) {
+    window.scrollTo(0, 0);
+    if (lastRoute && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter');
+    }
+  } else window.scrollTo(0, keepY);
+  lastRoute = r;
 }
+
+// Tocar la pestaña en la que ya estás sube al inicio (convención de iOS), sin redibujar.
+tabs.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-tab]');
+  if (a && a.dataset.tab === route()) {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+});
 
 function renderNoMonth(root) {
   root.append(h('section', { class: 'page' }, h('h1', {}, 'Sin mes para esta fecha'),

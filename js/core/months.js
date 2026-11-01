@@ -271,6 +271,19 @@ export function toggleCheck(state, key, habitId) {
   return v;
 }
 
+// Pone un estado directo (gesto de mantener presionado = mínimo). value: 'full' | 'min' | null.
+export function setCheck(state, key, habitId, value) {
+  if (value !== null && value !== 'full' && value !== 'min') throw new Error('estado inválido');
+  const month = state.months[monthKey(key)];
+  if (!dayIsInRange(month, key)) throw new Error('día fuera del mes registrado');
+  if (month.review) throw new Error('mes cerrado: solo se edita la nota');
+  if (!month.habits.some((h) => h.id === habitId)) throw new Error('hábito no existe en este mes');
+  const day = ensureDay(month, key);
+  if (value) day.checks[habitId] = value; else delete day.checks[habitId];
+  cleanupDay(month, key);
+  return value || undefined;
+}
+
 export function setNote(state, key, text) {
   const month = state.months[monthKey(key)];
   if (!dayIsInRange(month, key)) throw new Error('día fuera del mes registrado');

@@ -46,7 +46,9 @@ export function modal({ title, body, actions = [{ label: 'Entendido', value: tru
   return new Promise((resolve) => {
     const prev = document.activeElement;
     const close = (v) => {
-      wrap.remove();
+      // Sale con animación corta; la promesa se resuelve de una vez (la UI no espera).
+      wrap.classList.add('closing');
+      setTimeout(() => wrap.remove(), 180);
       document.removeEventListener('keydown', onKey);
       prev?.focus?.();
       resolve(v);
@@ -71,14 +73,33 @@ export function confirmModal(title, text, { ok = 'Confirmar', danger = false, ca
 }
 
 let toastTimer = null;
+function dismiss(el) {
+  if (!el || el.classList.contains('out')) return;
+  el.classList.add('out');
+  setTimeout(() => el.remove(), 200);
+}
+
 export function toast(text, { action, duration = 2200 } = {}) {
   document.querySelector('.toast')?.remove();
   clearTimeout(toastTimer);
   const el = h('div', { class: 'toast', role: 'status' }, h('span', {}, text),
-    action && h('button', { class: 'toast-action', type: 'button', onClick: () => { el.remove(); action.onClick(); } }, action.label));
+    action && h('button', { class: 'toast-action', type: 'button', onClick: () => { dismiss(el); action.onClick(); } }, action.label));
   layer().append(el);
-  if (duration) toastTimer = setTimeout(() => el.remove(), duration);
+  if (duration) toastTimer = setTimeout(() => dismiss(el), duration);
   return el;
+}
+
+// Háptica sutil en iPhone (iOS 18+): tocar un <input switch> oculto produce un "tic" del sistema.
+// No usa navigator.vibrate (iOS no lo tiene). En otros navegadores no hace nada.
+let hapticEl = null;
+export function haptic() {
+  try {
+    if (!hapticEl) {
+      hapticEl = h('label', { class: 'haptic', 'aria-hidden': 'true' }, h('input', { type: 'checkbox', switch: true, tabindex: '-1' }));
+      document.body.append(hapticEl);
+    }
+    hapticEl.click();
+  } catch { /* sin háptica */ }
 }
 
 // Confirmación sutil de autoguardado
