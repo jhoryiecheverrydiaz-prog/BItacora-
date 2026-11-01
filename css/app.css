@@ -661,3 +661,39 @@ body.sys-mode .tabs a.on { color: #3fa9ff; }
 .hm { cursor: pointer; }
 .search-results { margin-top: 6px; }
 .search-hit { font-family: var(--font-hand); width: 100%; }
+
+/* --- Apariencia (Ajustes → Apariencia) --- */
+html[data-size="l"] body { font-size: 19px; }
+html[data-size="xl"] body { font-size: 21px; }
+html[data-tone="white"] { --paper: #ffffff; --paper-2: #f7f7f5; }
+html[data-tone="gray"] { --paper: #eceef0; --paper-2: #f7f8f9; }
+@media (prefers-color-scheme: dark) {
+  html[data-tone="white"], html[data-tone="gray"] { --paper: #17191c; --paper-2: #202328; }
+  html[data-tone="gray"] { --paper: #1c1f23; }
+}
+html[data-paper="lines"] body { background-image: linear-gradient(var(--rule) 1px, transparent 1px); }
+html[data-paper="dots"] body { background-image: radial-gradient(var(--rule-strong) 1px, transparent 1.4px); }
+html[data-paper="plain"] body { background-image: none; }
+/* Noche cálida: filtro suave sobre la página (no toca los datos ni los colores guardados). */
+/* Capa fija encima de todo (un filter en body rompería la barra de pestañas fija). */
+html[data-night]::after {
+  content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  background: rgba(255, 150, 40, 0.07); mix-blend-mode: multiply;
+}
+@media (prefers-color-scheme: dark) { html[data-night]::after { background: rgba(255, 140, 30, 0.06); mix-blend-mode: soft-light; } }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; background: var(--hc); }
+.swatch[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--paper) inset; }
+.wd-chips .chip { min-width: 44px; padding: 8px 0; }
+details.group { margin: 0 0 14px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: color-mix(in srgb, var(--paper-2) 70%, transparent); }
+details.group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 56px; padding: 10px 16px; font-family: var(--font-title); font-size: 1.15rem; font-weight: 650; }
+details.group > summary::-webkit-details-marker { display: none; }
+details.group > summary::after { content: "›"; font-size: 1.4rem; color: var(--ink-3); transition: transform 0.2s var(--ease-out); }
+details.group[open] > summary::after { transform: rotate(90deg); }
+details.group > .group-body { padding: 0 16px 14px; }
+.group-hint { font-family: var(--font); font-size: 0.82rem; font-weight: 400; color: var(--ink-3); margin-left: auto; }
+.suggest-card { border-left: 3px solid var(--accent); }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c3); margin-right: 6px; }
+.status-dot.off { background: var(--ink-3); }
+.whatsnew ul { padding-left: 18px; }
+.whatsnew li { margin-bottom: 8px; }

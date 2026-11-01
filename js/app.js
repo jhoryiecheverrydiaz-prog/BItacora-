@@ -2,7 +2,8 @@ import { todayKey, isDateKey } from './core/dates.js';
 import { emptyState, closeStatus, currentMonth, applyFixedOff } from './core/months.js';
 import { migrate } from './core/migrate.js';
 import * as store from './store.js';
-import { h, clear, toast, flashSaved, shareFile } from './ui/dom.js';
+import { h, clear, toast, flashSaved, shareFile, modal } from './ui/dom.js';
+import { applyTheme } from './ui/theme.js';
 import { isStandalone, renderInstall } from './ui/install.js';
 import { renderOnboarding, useAreas } from './ui/onboarding.js';
 import { renderToday } from './ui/today.js';
@@ -13,7 +14,17 @@ import { renderYear } from './ui/year.js';
 import { renderSystem } from './ui/system.js';
 import { gameStats, progressNews, seenFrom } from './core/game.js';
 
-export const APP_VERSION = '2.2.0';
+export const APP_VERSION = '2.3.0';
+
+// Lo nuevo de esta versión (se muestra una vez tras actualizar).
+const WHATS_NEW = [
+  ['Hoy se ordena solo', 'Lo que toca a esta hora queda arriba; lo hecho baja. Elige el momento de cada hábito en Ajustes → Mi rutina → Ajustar, o deja que la app lo aprenda de tu hora real.'],
+  ['Gestos', 'Mantén presionado un hábito para el mínimo. Mantén presionado un día de la tira para rellenarlo. Doble toque en el contador para completar lo que falta. Desliza a los lados para cambiar de día.'],
+  ['Deshacer', 'Borrar en el Plan o rellenar un día se deshace desde el aviso de abajo.'],
+  ['Tu horario real', 'Mes → Hábitos te dice a qué hora sueles marcar cada hábito, y Ajustes te sugiere mover el recordatorio si no coincide.'],
+  ['A tu gusto', 'Ajustes → Apariencia: papel, tono, tamaño del texto, modo compacto, noche cálida y sonido de lápiz.'],
+  ['Más', 'Días libres fijos, temporada ligera, buscar en tus notas (Año), notas destacadas ★ y exportar a CSV.'],
+];
 
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -62,6 +73,8 @@ const ctx = {
     return ok;
   },
   checkForUpdate: () => checkForUpdate(true),
+  perf: [], // mediciones de render (solo se muestran en modo debug)
+  showWhatsNew: (force = false) => showWhatsNew(force),
   // Hora local (en debug se puede simular con ?hora=H para probar las franjas del día).
   hour() {
     const sim = DEBUG ? Number(new URLSearchParams(location.search).get('hora')) : NaN;
@@ -100,8 +113,10 @@ function startTab() {
 
 let lastRoute = null;
 function render() {
+  const t0 = performance.now();
   const keepY = window.scrollY;
   clear(view);
+  applyTheme(ctx.state, ctx.today, ctx.hour());
   const s = ctx.state;
   useAreas(s.areas);
   let r = route();
@@ -142,6 +157,26 @@ function render() {
     }
   } else window.scrollTo(0, keepY);
   lastRoute = r;
+  const ms = performance.now() - t0;
+  ctx.perf.push({ view: r, ms });
+  if (ctx.perf.length > 60) ctx.perf.shift();
+  if (r === 'hoy' || r === 'mes' || r === 'ano') showWhatsNew();
+}
+
+// Novedades: una vez por versión, nunca en la primera instalación ni en medio del onboarding.
+let whatsNewOpen = false;
+async function showWhatsNew(force = false) {
+  const s = ctx.state;
+  if (!s?.profile || whatsNewOpen) return;
+  if (!force) {
+    if (s.meta.seenVersion === APP_VERSION) return;
+    if (!s.meta.seenVersion && s.meta.lastOpenedDate === s.profile.createdAt) { s.meta.seenVersion = APP_VERSION; ctx.save(); return; }
+  }
+  s.meta.seenVersion = APP_VERSION;
+  ctx.save();
+  whatsNewOpen = true;
+  await modal({ title: `Novedades · ${APP_VERSION}`, body: h('div', { class: 'whatsnew' }, h('ul', {}, WHATS_NEW.map(([t, d]) => h('li', {}, h('b', {}, t), '. ', d)))) });
+  whatsNewOpen = false;
 }
 
 // Tocar la pestaña en la que ya estás sube al inicio (convención de iOS), sin redibujar.
@@ -163,11 +198,16 @@ let reg = null;
 let reloading = false;
 let updateRequested = false;
 
+async function applyUpdate() {
+  await store.flush();
+  updateRequested = true;
+  reg.waiting?.postMessage('SKIP_WAITING');
+}
+
+// La versión nueva se aplica sola al abrir la app (arranque en frío). Si llega con la app abierta,
+// solo se avisa unos segundos sin tapar nada; no hace falta tocarlo.
 function offerUpdate() {
-  toast('Hay una versión nueva', {
-    duration: 0,
-    action: { label: 'Actualizar', onClick: async () => { await store.flush(); updateRequested = true; reg.waiting?.postMessage('SKIP_WAITING'); } },
-  });
+  toast('Versión nueva lista: se aplica al volver a abrir', { duration: 5000, action: { label: 'Ahora', onClick: applyUpdate } });
 }
 
 async function checkForUpdate(manual = false) {
@@ -188,7 +228,10 @@ function registerSW() {
   });
   navigator.serviceWorker.register('sw.js').then((r) => {
     reg = r;
-    if (r.waiting && navigator.serviceWorker.controller) offerUpdate();
+    if (r.waiting && navigator.serviceWorker.controller) {
+      // Recién abierta (primeros segundos): se aplica sin preguntar.
+      if (performance.now() < 4000) applyUpdate(); else offerUpdate();
+    }
     r.addEventListener('updatefound', () => {
       const w = r.installing;
       w?.addEventListener('statechange', () => {

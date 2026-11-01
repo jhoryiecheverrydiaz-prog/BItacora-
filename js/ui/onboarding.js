@@ -29,9 +29,19 @@ export function reminderTitle(profile) {
 }
 
 // Instrucciones §9: Recordatorios de iOS (principal) y Atajos (alternativa).
-export function reminderBlock(profile) {
+// Texto del recordatorio con tus hábitos agrupados por momento y tu señal (si la tienen).
+export function reminderText(profile, habits = []) {
+  if (!habits.length) return '';
+  const label = { am: 'Mañana', pm: 'Tarde', night: 'Noche' };
+  const groups = {};
+  for (const hb of habits) (groups[hb.when || ''] ||= []).push(`${hb.name}${hb.cue ? ` (${hb.cue})` : ''} · mín. ${hb.min}`);
+  return ['am', 'pm', 'night', ''].filter((k) => groups[k]).map((k) => `${k ? `${label[k]}: ` : ''}${groups[k].join('; ')}`).join('\n');
+}
+
+export function reminderBlock(profile, habits = []) {
   const title = reminderTitle(profile);
   const time = profile.reminderTime || '07:00';
+  const notes = reminderText(profile, habits);
   return h('div', {},
     h('h3', {}, 'Opción A · App Recordatorios'),
     h('ol', { class: 'rules' },
@@ -42,6 +52,10 @@ export function reminderBlock(profile) {
       h('li', {}, 'Cuando suene, abre Bitácora desde su ícono en la pantalla de inicio (no desde Safari).'),
     ),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', type: 'button', onClick: async () => toast(await copyText(title) ? 'Título copiado' : 'No se pudo copiar') }, 'Copiar título')),
+    notes && h('div', { style: { marginTop: '10px' } },
+      h('p', { class: 'field-label' }, 'Notas del recordatorio (opcional)'),
+      h('p', { class: 'copy-box small' }, notes),
+      h('button', { class: 'btn', type: 'button', onClick: async () => toast(await copyText(notes) ? 'Notas copiadas: pégalas en el campo Notas' : 'No se pudo copiar') }, 'Copiar notas')),
     h('h3', { style: { marginTop: '18px' } }, 'Opción B · Atajos'),
     h('ol', { class: 'rules' },
       h('li', {}, 'Atajos → Automatización → Nueva → Hora del día → ', h('b', {}, time), ', diariamente.'),
