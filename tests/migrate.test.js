@@ -13,7 +13,7 @@ test('estado actual (v4) pasa sin cambios y no se muta el original', () => {
 
 test('v3 → v4: agrega preferencias por defecto, versión vista y temporada', () => {
   const v3 = structuredClone(starter());
-  delete v3.meta.prefs; delete v3.meta.seenVersion; delete v3.meta.season;
+  delete v3.meta.prefs; delete v3.meta.seenVersion; delete v3.meta.season; delete v3.meta.setup;
   v3.schemaVersion = 3;
   const out = migrate(v3);
   assert.equal(out.schemaVersion, 4);
@@ -21,6 +21,7 @@ test('v3 → v4: agrega preferencias por defecto, versión vista y temporada', (
   assert.notEqual(out.meta.prefs, DEFAULT_PREFS);
   assert.equal(out.meta.seenVersion, null);
   assert.equal(out.meta.season, null);
+  assert.equal(out.meta.setup, null);
   assert.deepEqual(out.months, v3.months);
   assert.equal(v3.meta.prefs, undefined);
 });

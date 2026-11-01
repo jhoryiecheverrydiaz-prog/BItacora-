@@ -697,3 +697,14 @@ details.group > .group-body { padding: 0 16px 14px; }
 .status-dot.off { background: var(--ink-3); }
 .whatsnew ul { padding-left: 18px; }
 .whatsnew li { margin-bottom: 8px; }
+
+/* --- Onboarding corto y "Completa tu bitácora" --- */
+.setup-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.setup-head h2 { margin: 0; }
+.setup-list { display: grid; margin: 8px 0 2px; }
+.setup-item { display: flex; align-items: center; gap: 10px; min-height: 48px; border: 0; border-bottom: 1px solid var(--rule-strong); background: none; text-align: left; padding: 0 2px; }
+.setup-item .dotc { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); flex: none; }
+.setup-item .chev { margin-left: auto; color: var(--ink-3); font-size: 1.3rem; }
+.more-opts { margin-top: 6px; }
+.more-opts summary { cursor: pointer; color: var(--accent); min-height: 44px; display: flex; align-items: center; }
+.quick-close { margin-top: 18px; }

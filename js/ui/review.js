@@ -7,9 +7,12 @@ import { parseClaudeImport, describeProposal } from '../core/importer.js';
 import { chartSvg } from './month.js';
 import { allIdeas, IDEA_FREQ } from '../core/years.js';
 import { habitForm } from './onboarding.js';
+import { sharePostcard } from './postcard.js';
+import { friendly } from './errors.js';
 
 const pctText = (p) => (p === null || p === undefined ? '—' : `${Math.round(p * 100)} %`);
 const SUGG_TEXT = { up: 'subir nivel (≥ 80 %)', keep: 'mantener (50-80 %)', down: 'bajar nivel (< 50 %)' };
+const WHY = { up: 'Lo cumpliste casi siempre: puedes pedirle un poco más.', keep: 'Va bien: mantenerlo da estabilidad.', down: 'Costó: un mínimo más simple ayuda a sostenerlo.' };
 const STEPS = 6;
 let plan = null; // borrador del cierre en memoria
 
@@ -24,7 +27,9 @@ function initPlan(state, key, today) {
     key, step: 1, fromClaude: false, notes: '', mantra: '', goals: ['', '', ''], added: [],
     decisions: Object.fromEntries(m.habits.map((hb) => {
       const pct = st.perHabit[hb.id].pct;
-      return [hb.id, { decision: 'keep', pct, suggested: suggestDecision(pct), min: hb.min, habit: null }];
+      const sg = suggestDecision(pct);
+      // Valor sugerido ya elegido (smart default); se cambia con un toque.
+      return [hb.id, { decision: sg, pct, suggested: sg, min: hb.min, habit: null }];
     })),
   };
   const pi = state.meta.pendingImport;
@@ -77,7 +82,9 @@ export function renderReview(root, ctx) {
 
   function step1() {
     const st = monthStats(m, today);
-    const lines = st.series.filter((s) => s.counts && m.days[s.key]?.note);
+    const all = st.series.filter((s) => s.counts && m.days[s.key]?.note);
+    // Las destacadas (★) van primero: son el resumen que tú mismo elegiste.
+    const lines = [...all.filter((s) => m.days[s.key].star), ...all.filter((s) => !m.days[s.key].star)];
     return [
       h('h1', {}, `Cierre de ${monthTitle(m.key)}`),
       h('p', { class: 'muted' }, '5 minutos. Primero mira el mes completo.'),
@@ -93,8 +100,11 @@ export function renderReview(root, ctx) {
         return h('li', {}, h('span', { class: 'box full', 'data-c': hb.color, style: { width: '18px', height: '18px' } }), h('span', { class: 'grow' }, hb.name), h('b', {}, `${pctText(s.pct)}`), h('span', { class: 'muted small' }, `${s.done}/${s.expected}`));
       })),
       h('h2', { style: { marginTop: '18px' } }, 'Tus líneas del mes'),
-      lines.length ? h('div', { class: 'reread' }, lines.map((s) => h('p', {}, h('b', {}, String(s.day)), m.days[s.key].note))) : h('p', { class: 'muted' }, 'No hay líneas este mes.'),
+      lines.length ? h('div', { class: 'reread' }, lines.map((s) => h('p', {}, h('b', {}, `${m.days[s.key].star ? '★ ' : ''}${s.day}`), m.days[s.key].note))) : h('p', { class: 'muted' }, 'No hay líneas este mes.'),
       nav(),
+      h('div', { class: 'card quick-close' },
+        h('p', {}, h('b', {}, '¿Sin cambios?'), ` Crea ${monthTitle(nextKey)} con los mismos hábitos y mínimos en un toque.`),
+        h('button', { class: 'btn block', type: 'button', onClick: quickClose }, 'Mantener todo igual')),
       cs.canSnooze && h('button', { class: 'linklike small', type: 'button', onClick: () => { snoozeClose(state, today); ctx.save(); toast('Mañana el cierre será obligatorio'); ctx.go('hoy'); } }, 'Cerrar después (solo hoy)'),
     ];
   }
@@ -117,7 +127,7 @@ export function renderReview(root, ctx) {
       }
       return h('div', { class: 'card' },
         h('div', { class: 'habit-head' }, h('span', { class: 'box full', 'data-c': hb.color, style: { width: '18px', height: '18px' } }), h('b', {}, hb.name), h('span', { class: 'pct' }, pctText(d.pct))),
-        h('p', { class: 'sugg' }, `Sugerencia: ${SUGG_TEXT[d.suggested]}.${d.claude ? ' Incluye ajuste propuesto por Claude.' : ''}`),
+        h('p', { class: 'sugg' }, `Sugerencia (ya elegida): ${SUGG_TEXT[d.suggested]}. ${WHY[d.suggested]}${d.claude ? ' Incluye ajuste propuesto por Claude.' : ''}`),
         h('div', { class: 'seg' }, opts.map((o) => h('button', {
           type: 'button', 'aria-pressed': String(d.decision === o), class: o === d.suggested ? 'suggested' : '',
           disabled: o !== 'remove' && d.decision === 'remove' && total >= MAX_HABITS,
@@ -205,6 +215,7 @@ export function renderReview(root, ctx) {
       h('pre', { class: 'copy-box mono' }, text),
       h('div', { class: 'stack' },
         h('button', { class: 'btn primary block', type: 'button', onClick: () => shareText(text, 'Resumen mensual') }, 'Compartir resumen'),
+        h('button', { class: 'btn block', type: 'button', onClick: () => sharePostcard(m, today) }, 'Postal del mes (imagen)'),
         h('button', { class: 'btn block', type: 'button', onClick: async () => { if (await ctx.exportBackup()) toast('Respaldo listo'); } }, 'Exportar respaldo (recomendado)')),
       nav(),
     ];
@@ -223,6 +234,15 @@ export function renderReview(root, ctx) {
     ];
   }
 
+  // Cierre en un toque: todo "mantener", sin metas nuevas.
+  async function quickClose() {
+    for (const d of Object.values(p.decisions)) { d.decision = 'keep'; d.edit = null; }
+    p.added = [];
+    const errs = validateHabitList(resultingHabits(m, p));
+    if (errs.length) { toast(friendly(errs[0])); return; }
+    await create();
+  }
+
   async function create() {
     const decisions = {};
     for (const [id, d] of Object.entries(p.decisions)) {
@@ -239,7 +259,7 @@ export function renderReview(root, ctx) {
         mantra: p.mantra, goals: p.goals, notes: p.notes.trim(),
       }, today);
     } catch (e) {
-      toast(cap(e.message), { duration: 4000 });
+      toast(friendly(e), { duration: 4000 });
       return;
     }
     state.meta.pendingImport = null;

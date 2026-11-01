@@ -46,7 +46,7 @@ export const MIGRATIONS = {
   // v4: preferencias (apariencia, días libres fijos, orden), versión vista (novedades) y temporada ligera.
   // Campos opcionales nuevos, sin migración de datos: habit.when|cue|bundle|after|icon|days, day.at, day.star.
   3: (s) => {
-    s.meta = { ...s.meta, prefs: { ...structuredClone(DEFAULT_PREFS), ...(s.meta?.prefs || {}) }, seenVersion: s.meta?.seenVersion ?? null, season: s.meta?.season ?? null };
+    s.meta = { ...s.meta, prefs: { ...structuredClone(DEFAULT_PREFS), ...(s.meta?.prefs || {}) }, seenVersion: s.meta?.seenVersion ?? null, season: s.meta?.season ?? null, setup: s.meta?.setup ?? null };
     s.schemaVersion = 4;
     return s;
   },

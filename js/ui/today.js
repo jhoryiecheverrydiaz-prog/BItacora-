@@ -7,12 +7,14 @@ import {
 import { weekProgress, monthProgress, monthStats, dayScore, isBlank, habitStrength } from '../core/stats.js';
 import { areaById } from '../core/years.js';
 import { gameStats, XP } from '../core/game.js';
-import { weeklySummary } from '../core/summary.js';
+import { weeklySummary, weeklyShort, weeklyRange } from '../core/summary.js';
+import { addDays } from '../core/dates.js';
 import {
   todayGroups, nextInStack, nowHM, weakWeekday, topWords, yearAgo, daysAway, freshStart, inSeason, WHEN_ICON,
 } from '../core/routine.js';
 import { LINE_MODES } from './onboarding.js';
 import { friendly } from './errors.js';
+import { setupCard } from './setup.js';
 
 const STATE_LABEL = { full: 'Completo', min: 'Mínimo' };
 const NOTE_MAX = 280;
@@ -74,9 +76,39 @@ export function renderToday(root, ctx) {
     setTimeout(() => el.remove(), reduceMotion() ? 0 : 220);
   }
 
+  // Revisión guiada (opcional): 3 respuestas con un toque que se suman al resumen.
+  async function askReflection() {
+    const { start } = weeklyRange(today);
+    const m = state.months[monthKey(today)];
+    const r = { best: null, missed: null, change: '' };
+    const chips = (list, key) => h('div', { class: 'chips' }, list.map(([v, label]) => {
+      const b = h('button', { class: 'chip small', type: 'button', 'aria-pressed': 'false', onClick: () => {
+        r[key] = r[key] === v ? null : v;
+        b.parentElement.querySelectorAll('.chip').forEach((o) => o.setAttribute('aria-pressed', String(o === b && r[key] === v)));
+      } }, label);
+      return b;
+    }));
+    const days7 = Array.from({ length: 7 }, (_, i) => addDays(start, i)).filter((k) => k <= today);
+    const change = h('input', { class: 'input', maxlength: 100, placeholder: 'Ej.: dejar el agua junto a la cama', onInput: (e) => { r.change = e.target.value; } });
+    const v = await modal({
+      title: 'Revisión de la semana',
+      body: h('div', {},
+        h('p', { class: 'muted small' }, 'Opcional, 20 segundos. Se agrega al resumen.'),
+        h('p', { class: 'field-label' }, 'Mejor día'), chips(days7.map((k) => [WEEKDAYS[weekdayOf(k)], WEEKDAYS[weekdayOf(k)].slice(0, 3)]), 'best'),
+        h('p', { class: 'field-label' }, 'Lo que más costó'), chips(m.habits.map((hb) => [hb.name, hb.short]), 'missed'),
+        h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Un ajuste para la próxima semana'), change)),
+      actions: [{ label: 'Saltar', value: 'skip' }, { label: 'Continuar', value: 'ok', kind: 'primary' }],
+    });
+    if (v === null) return undefined;
+    return v === 'ok' ? r : null;
+  }
+
   async function sendWeekly() {
+    const reflection = await askReflection();
+    if (reflection === undefined) return;
+    const forPerson = state.profile.accountability?.to === 'persona';
     let text;
-    try { text = weeklySummary(state, today); } catch (e) { toast(friendly(e)); return; }
+    try { text = forPerson ? weeklyShort(state, today, reflection) : weeklySummary(state, today, reflection); } catch (e) { toast(friendly(e)); return; }
     // Respaldo y resumen en la misma pasada (el respaldo se guarda en Archivos).
     const r = await shareText(text, 'Resumen semanal');
     if (r !== 'cancelled') {
@@ -433,6 +465,7 @@ export function renderToday(root, ctx) {
         })(),
         statsEl, announceEl),
       welcomeEl(),
+      selected === today && setupCard(ctx, () => draw()),
       strip(),
       season && selected === today && h('p', { class: 'season-tag small' }, `Temporada ligera hasta el ${formatShort(state.meta.season.until)}: el mínimo basta.`),
       isWeakToday && !season && selected === today && h('p', { class: 'muted small' }, `Los ${WEEKDAYS[weakDay]} son tu día con menos registro. El mínimo cuenta.`),

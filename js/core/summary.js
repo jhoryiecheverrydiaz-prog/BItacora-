@@ -61,7 +61,17 @@ export function weeklyRange(today) {
   return { start, end: addDays(start, 6), ref };
 }
 
-export function weeklySummary(state, today) {
+// Revisión guiada del usuario (3 respuestas cortas) → línea para el resumen.
+export function reflectionLine(r) {
+  if (!r) return null;
+  const parts = [];
+  if (r.best) parts.push(`mejor día: ${r.best}`);
+  if (r.missed) parts.push(`lo que más costó: ${r.missed}`);
+  if (r.change?.trim()) parts.push(`ajuste que quiero probar: ${r.change.trim()}`);
+  return parts.length ? `Mi revisión: ${parts.join('; ')}.` : null;
+}
+
+export function weeklySummary(state, today, reflection = null) {
   const { start, end, ref } = weeklyRange(today);
   const monthOf = (k) => state.months[monthKey(k)];
   const dayOf = (k) => monthOf(k)?.days[k];
@@ -84,6 +94,7 @@ export function weeklySummary(state, today) {
     goalsLine(m),
     yearGoalsLine(state, ref.slice(0, 4)),
     gameLine(state, today),
+    reflectionLine(reflection),
     '---',
     WEEKLY_INSTRUCTION,
     NOTION_LINE,
@@ -125,5 +136,29 @@ export function monthlySummary(state, key, today, decisions = null, next = null)
     lines.push(`Próximo mes · Mantra: ${next.mantra ? `"${next.mantra}"` : '—'} · Objetivos: ${goals.length ? goals.join(' · ') : '—'}`);
   }
   lines.push('---', MONTHLY_INSTRUCTION, NOTION_LINE, FORMAT_LINE);
+  return lines.join('\n');
+}
+
+// Versión corta y humana para una persona (WhatsApp): sin instrucciones ni JSON.
+export function weeklyShort(state, today, reflection = null) {
+  const { start, end, ref } = weeklyRange(today);
+  const monthOf = (k) => state.months[monthKey(k)];
+  const dayOf = (k) => monthOf(k)?.days[k];
+  const week = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  const counted = week.filter((k) => k <= today && dayIsInRange(monthOf(k), k));
+  const m = monthOf(ref) || monthOf(counted[counted.length - 1] || start);
+  if (!m) throw new Error('no hay datos para esta semana');
+  const active = counted.filter((k) => !dayOf(k)?.off);
+  const registered = active.filter((k) => !isBlank(dayOf(k))).length;
+  const name = state.profile?.name ? `${state.profile.name}: ` : '';
+  const lines = [
+    `${name}mi semana ${formatRange(start, end)}`,
+    `Registré ${registered} de ${active.length} días.`,
+    ...m.habits.map((h) => {
+      const c = countHabit(h, counted, dayOf);
+      return `• ${h.name}: ${c.done}/${c.expected}`;
+    }),
+    reflectionLine(reflection),
+  ].filter(Boolean);
   return lines.join('\n');
 }

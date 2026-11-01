@@ -1,4 +1,7 @@
-import { h, clear, field, toast, copyText } from './dom.js';
+import { h, clear, field, toast, copyText, modal, pickTextFile } from './dom.js';
+import { suggestMin } from '../core/routine.js';
+import { validateBackup } from '../core/importer.js';
+import { routineFields } from './habitextras.js';
 import { addDays, formatShort, formatLong, diffDays, WEEKDAYS } from '../core/dates.js';
 import { createStarterState, autoShort, validateHabitList, MAX_HABITS, RECOMMENDED_START, MAX_SHORT, MAX_MONTHLY, LOOKBACK_DAYS, newId } from '../core/months.js';
 
@@ -22,7 +25,11 @@ const SUGGESTIONS = [
   { name: 'Sin redes antes de las 9', short: 'REDES', min: 'Sin redes la primera media hora', target: { type: 'daily' } },
 ];
 
-const TOTAL = 10;
+// Onboarding corto: nombre e inicio → hábitos → reglas. Lo demás (ancla, línea, rendición, respaldo,
+// recordatorio, mantra) queda como tarjeta "Completa tu bitácora" en Hoy (progressive disclosure).
+const ORDER = [1, 4, 8];
+const TOTAL = ORDER.length;
+export const SETUP_ITEMS = ['anchor', 'line', 'acc', 'backup', 'reminder'];
 
 export function reminderTitle(profile) {
   return `Bitácora (${profile.anchor || 'registro diario'})`;
@@ -82,6 +89,10 @@ export function renderOnboarding(root, ctx) {
   const page = h('section', { class: 'page' });
   root.append(page);
 
+  if (!ORDER.includes(d.step) && d.step <= 8) d.step = d.step < 4 ? 1 : d.step < 8 ? 4 : 8;
+  const nextOf = (st) => ORDER[ORDER.indexOf(st) + 1] ?? st;
+  const prevOf = (st) => ORDER[ORDER.indexOf(st) - 1] ?? st;
+
   function go(step) {
     d.step = step;
     save();
@@ -90,8 +101,8 @@ export function renderOnboarding(root, ctx) {
 
   function nav({ next = 'Siguiente', onNext, back = true, nextDisabled = false } = {}) {
     return h('div', { class: 'ob-nav' },
-      back && d.step > 1 && h('button', { class: 'btn ghost', type: 'button', onClick: () => go(d.step - 1) }, 'Atrás'),
-      h('button', { class: 'btn primary', type: 'button', disabled: nextDisabled, onClick: () => { if (!onNext || onNext() !== false) go(d.step + 1); } }, next),
+      back && d.step > 1 && h('button', { class: 'btn ghost', type: 'button', onClick: () => go(prevOf(d.step)) }, 'Atrás'),
+      h('button', { class: 'btn primary', type: 'button', disabled: nextDisabled, onClick: () => { if (!onNext || onNext() !== false) go(nextOf(d.step)); } }, next),
     );
   }
 
@@ -110,6 +121,9 @@ export function renderOnboarding(root, ctx) {
           opts.map((k, i) => h('option', { value: k, selected: k === d.startKey }, i === 0 ? `Hoy · ${formatShort(k)}` : i === 1 ? `Ayer · ${formatShort(k)}` : formatLong(k))))),
         err,
         nav({ onNext: () => { if (!d.name.trim()) { err.hidden = false; err.textContent = 'Escribe un nombre.'; return false; } } }),
+        h('div', { class: 'card', style: { marginTop: '22px' } },
+          h('p', {}, h('b', {}, '¿Ya usabas Bitácora?'), ' Si borraste el ícono o cambiaste de teléfono, trae tu respaldo y sigues donde ibas.'),
+          h('button', { class: 'btn block', type: 'button', onClick: restoreBackup }, 'Restaurar un respaldo')),
       ];
     },
     2: () => [
@@ -218,6 +232,17 @@ export function renderOnboarding(root, ctx) {
     ];
   }
 
+  async function restoreBackup() {
+    const text = await pickTextFile();
+    if (!text) return;
+    const r = validateBackup(text);
+    if (!r.ok) { await modal({ title: 'Respaldo no válido', body: h('ul', { class: 'rules' }, r.errors.map((e) => h('li', { class: 'err-text' }, cap(e)))) }); return; }
+    r.state.meta.onboardingDraft = null;
+    await ctx.replaceState(r.state);
+    toast('Respaldo restaurado');
+    ctx.go('hoy');
+  }
+
   function createState() {
     const g = d.goals.map((x) => x.trim()).filter(Boolean);
     try {
@@ -226,11 +251,17 @@ export function renderOnboarding(root, ctx) {
         startKey: d.startKey, today, habits: d.habits, mantra: d.mantra, goals: g,
       });
       fresh.meta.lastBackupAt = state.meta.lastBackupAt;
-      fresh.meta.onboardingDraft = { ...d, step: 9 };
+      fresh.meta.onboardingDraft = null;
+      fresh.meta.setup = { pending: SETUP_ITEMS.filter((k) => !(k === 'backup' && fresh.meta.lastBackupAt)) };
       Object.assign(state, fresh);
       ctx.state = state;
-      ctx.saveNow();
-      ctx.render(); // el borrador nuevo (paso 9) vive en state.meta
+      const n = diffDays(d.startKey, today) + 1;
+      (async () => {
+        try { state.meta.persistGranted = (await navigator.storage?.persist?.()) ?? null; } catch { state.meta.persistGranted = false; }
+        await ctx.saveNow();
+        toast(n > 1 ? `Listo. Hoy es tu día ${n}: rellena los anteriores desde la tira de días.` : 'Listo. Hoy es tu día 1.', { duration: 4500 });
+        ctx.go('hoy');
+      })();
     } catch (e) {
       toast(cap(e.message), { duration: 4000 });
     }
@@ -252,10 +283,11 @@ export function renderOnboarding(root, ctx) {
 
   function draw() {
     clear(page);
-    const pct = Math.round((d.step / TOTAL) * 100);
+    const idx = Math.max(0, ORDER.indexOf(d.step)) + 1;
+    const pct = Math.round((idx / TOTAL) * 100);
     page.append(
-      h('div', { class: 'ob-count' }, `Paso ${d.step} de ${TOTAL}`),
-      h('div', { class: 'ob-progress', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': TOTAL, 'aria-valuenow': d.step }, h('i', { style: { width: `${pct}%` } })),
+      h('div', { class: 'ob-count' }, `Paso ${idx} de ${TOTAL}`),
+      h('div', { class: 'ob-progress', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': TOTAL, 'aria-valuenow': idx }, h('i', { style: { width: `${pct}%` } })),
       ...(steps[d.step] || steps[1])(),
     );
     page.querySelector('h1')?.focus?.();
@@ -276,6 +308,8 @@ const FREQ_LABEL = { daily: 'Diaria', weekly: 'X por semana', monthly: 'X por me
 
 // Mini-formulario de hábito (onboarding, cierre, emergencia). Muta `x`.
 export function habitForm(x, onRemove, onChange = () => {}) {
+  const minIn = h('input', { class: 'input', value: x.min, maxlength: 80, placeholder: 'Ej.: 2 páginas',
+    onInput: (e) => { x.min = e.target.value; x.minTouched = true; onChange(); } });
   const shortIn = h('input', { class: 'input', value: x.short || autoShort(x.name), maxlength: MAX_SHORT, autocapitalize: 'characters',
     onInput: (e) => { x.short = e.target.value.toUpperCase(); x.shortTouched = true; onChange(); } });
   const type = x.target?.type || 'daily';
@@ -294,7 +328,13 @@ export function habitForm(x, onRemove, onChange = () => {}) {
     AREAS.map((a) => h('option', { value: a.id, selected: x.area === a.id }, `${a.emoji ? `${a.emoji} ` : ''}${a.name}`))));
   return h('div', { class: 'card' },
     field('Nombre', h('input', { class: 'input', value: x.name, maxlength: 40, placeholder: 'Ej.: Leer',
-      onInput: (e) => { x.name = e.target.value; if (!x.shortTouched) { x.short = autoShort(x.name); shortIn.value = x.short; } onChange(); } })),
+      onInput: (e) => {
+        x.name = e.target.value;
+        if (!x.shortTouched) { x.short = autoShort(x.name); shortIn.value = x.short; }
+        // Mínimo sugerido por palabra clave mientras no lo hayas escrito tú.
+        if (!x.minTouched) { const sg = suggestMin(x.name); if (sg) { x.min = sg; minIn.value = sg; } }
+        onChange();
+      } })),
     h('div', { class: 'row' },
       field(`Etiqueta (≤ ${MAX_SHORT})`, shortIn),
       field('Frecuencia', h('select', { class: 'input', onChange: (e) => {
@@ -307,8 +347,8 @@ export function habitForm(x, onRemove, onChange = () => {}) {
     ),
     countField,
     areaSel,
-    field('Versión mínima (obligatoria)', h('input', { class: 'input', value: x.min, maxlength: 80, placeholder: 'Ej.: 2 páginas',
-      onInput: (e) => { x.min = e.target.value; onChange(); } }), 'Lo mínimo que cuenta como cumplido en un día malo.'),
+    field('Versión mínima (obligatoria)', minIn, 'Lo mínimo que cuenta como cumplido en un día malo.'),
+    h('details', { class: 'more-opts' }, h('summary', {}, 'Más opciones: momento del día y señal'), routineFields(x, [], { colors: false })),
     onRemove && h('button', { class: 'linklike small', type: 'button', onClick: onRemove }, 'Quitar este hábito'),
   );
 }

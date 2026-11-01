@@ -83,3 +83,22 @@ test('línea del Sistema solo si está activo', async () => {
   assert.match(gameLine(st, '2026-10-31'), /^Sistema: Nv\. \d+ · Rango [EDCBAS] · \d+ XP/);
   assert.match(weeklySummary(st, '2026-10-31'), /\nSistema: Nv\./);
 });
+
+test('revisión guiada y resumen corto para una persona', async () => {
+  const { starter } = await import('./fixtures.js');
+  const S = await import('../js/core/summary.js');
+  const M = await import('../js/core/months.js');
+  const st = starter();
+  const id = st.months['2026-10'].habits[1].id;
+  M.setCheck(st, '2026-10-28', id, 'full');
+  assert.equal(S.reflectionLine(null), null);
+  assert.equal(S.reflectionLine({ best: 'miércoles', missed: 'Agua', change: ' agua junto a la cama ' }), 'Mi revisión: mejor día: miércoles; lo que más costó: Agua; ajuste que quiero probar: agua junto a la cama.');
+  const long = S.weeklySummary(st, '2026-10-29', { best: 'miércoles' });
+  assert.match(long, /Mi revisión: mejor día: miércoles\./);
+  const short = S.weeklyShort(st, '2026-10-29', { change: 'dormir antes' });
+  assert.match(short, /^Prueba: mi semana/);
+  assert.match(short, /Registré 1 de 2 días\./);
+  assert.match(short, /• Meditar: 1\/2/);
+  assert.match(short, /ajuste que quiero probar: dormir antes/);
+  assert.doesNotMatch(short, /bitacora_import/);
+});

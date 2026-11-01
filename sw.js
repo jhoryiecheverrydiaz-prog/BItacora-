@@ -27,6 +27,8 @@ const SHELL = [
   'js/ui/export.js',
   'js/ui/habitextras.js',
   'js/ui/theme.js',
+  'js/ui/postcard.js',
+  'js/ui/setup.js',
   'js/ui/dom.js',
   'js/ui/install.js',
   'js/ui/onboarding.js',

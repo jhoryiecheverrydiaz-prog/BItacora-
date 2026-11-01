@@ -50,6 +50,7 @@ export const TITLES = [
   { id: 'rango-d', name: 'Cazador de rango D', desc: 'Llegar al nivel 10.', test: (g) => g.level >= 10 },
   { id: 'incansable', name: 'Incansable', desc: '10 días al 100 %.', test: (g) => g.perfectDays >= 10 },
   { id: 'nunca-dos', name: 'Nunca dos veces', desc: '5 misiones de recuperación.', test: (g) => g.recoveries >= 5 },
+  { id: 'siempre-vuelve', name: 'Siempre vuelve', desc: '10 regresos después de un día en blanco.', test: (g) => g.recoveries >= 10 },
   { id: 'rango-c', name: 'Cazador de rango C', desc: 'Llegar al nivel 20.', test: (g) => g.level >= 20 },
   { id: 'puerta-roja', name: 'Puerta roja', desc: 'Cumplir una meta del año.', test: (g) => g.yearGoalsDone >= 1 },
   { id: 'cien', name: 'Cien amaneceres', desc: '100 días registrados.', test: (g) => g.daysRegistered >= 100 },

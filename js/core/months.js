@@ -39,7 +39,7 @@ export function emptyState() {
     areas: structuredClone(DEFAULT_AREAS),
     years: {},
     months: {},
-    meta: { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null, game: { ...DEFAULT_GAME }, prefs: structuredClone(DEFAULT_PREFS), seenVersion: null, season: null },
+    meta: { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null, game: { ...DEFAULT_GAME }, prefs: structuredClone(DEFAULT_PREFS), seenVersion: null, season: null, setup: null },
   };
 }
 
