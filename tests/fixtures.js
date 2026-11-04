@@ -23,6 +23,8 @@ export function asV1(state) {
   delete s.years;
   for (const m of Object.values(s.months)) for (const h of m.habits) delete h.area;
   delete s.meta.game;
+  delete s.meta.checkin;
+  delete s.meta.focus;
   s.schemaVersion = 1;
   return s;
 }

@@ -3,6 +3,7 @@ import { isBlank, countHabit, dayScore, monthStats, elapsedKeys } from './stats.
 import { dayIsInRange } from './months.js';
 import { yearOf, areaById, areaLabel } from './years.js';
 import { gameStats } from './game.js';
+import { summarize } from './insights.js';
 
 export const DECISION_LABEL = { keep: 'mantener', up: 'subir nivel', down: 'bajar nivel', remove: 'quitar', replace: 'reemplazar' };
 
@@ -29,6 +30,21 @@ function habitLine(state, h, c, decision) {
   const d = decision ? ` → ${DECISION_LABEL[decision] || decision}` : '';
   const a = h.area && areaById(state, h.area);
   return `- ${h.short} ${h.name} [${freq(h)}${a ? ` · ${a.name}` : ''}]: ${c.done}/${c.expected} (${c.min})${d}`;
+}
+
+// Registro extendido: "Registro: energía 3,6 · ánimo 3,9 · sueño 6,8 h (4 noches ≥ 7 h) · focos 12 · tarea #1 5/7 días".
+export function logLine(state, keys) {
+  const active = keys.filter((k) => !state.months[k.slice(0, 7)]?.days[k]?.off);
+  const s = summarize(state, active);
+  if (!s.checkinDays && !s.focus && !s.task1Days && !s.sleepDays) return null;
+  const f = (v) => (v === null ? '—' : v.toFixed(1).replace('.', ','));
+  return `Registro: energía ${f(s.energy)} · ánimo ${f(s.mood)} · sueño ${s.sleep === null ? '—' : `${f(s.sleep)} h (${s.goodNights} noches ≥ 7 h)`} · focos ${s.focus} · tarea #1 ${s.task1Days}/${s.days} días`;
+}
+
+function closesLine(state, keys) {
+  const items = keys.map((k) => [k, state.months[k.slice(0, 7)]?.days[k]?.log?.task1]).filter(([, t]) => t && t.trim());
+  if (!items.length) return null;
+  return `Tareas #1: ${items.map(([k, t]) => `${Number(k.slice(8))}: ${t.trim()}`).join(' · ')}`;
 }
 
 // Sistema (si está activo): "Sistema: Nv. 12 · Rango D · 1.234 XP · 5 días al 100 %".
@@ -81,6 +97,8 @@ export function weeklySummary(state, today) {
     ...m.habits.map((h) => habitLine(state, h, countHabit(h, counted, dayOf))),
     `Puntaje diario: ${week.map((k, i) => WEEK_LETTERS[i] + (counted.includes(k) ? (dayOf(k)?.off ? 'L' : dayScore(monthOf(k), k)) : '-')).join(' ')}`,
     ...linesBlock(counted, dayOf),
+    logLine(state, counted),
+    closesLine(state, counted),
     goalsLine(m),
     yearGoalsLine(state, ref.slice(0, 4)),
     gameLine(state, today),
@@ -116,6 +134,7 @@ export function monthlySummary(state, key, today, decisions = null, next = null)
     `Puntaje diario: ${st.series.filter((s) => s.counts).map((s) => `${s.day}:${s.off ? 'L' : s.score}`).join(' ') || '—'}`,
     `Mejor día: ${st.bestDay ? `${st.bestDay.day} (${st.bestDay.score})` : '—'} · Día más flojo: ${st.weakestWeekday === null ? '—' : WEEKDAYS[(st.weakestWeekday + 1) % 7]}`,
     ...linesBlock(keys, dayOf),
+    logLine(state, keys),
     goalsLine(m),
     yearGoalsLine(state, key.slice(0, 4)),
     gameLine(state, today),

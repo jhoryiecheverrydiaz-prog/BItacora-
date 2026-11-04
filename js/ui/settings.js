@@ -3,7 +3,8 @@ import { todayKey, monthKey, monthTitle, WEEKDAYS, formatShort } from '../core/d
 import { parseCsv, readXlsx, planImport, applyImport, defaultSelection, describePlanMonth, YEAR_SOURCE_LABEL } from '../core/sheets.js';
 import { areaLabel, areaById } from '../core/years.js';
 import { gameStats, seenFrom } from '../core/game.js';
-import { editHabitText, emergencyChange, emptyState, MAX_HABITS, MAX_SHORT, newId } from '../core/months.js';
+import { editHabitText, emergencyChange, emptyState, MAX_HABITS, MAX_SHORT, MAX_ANCHOR, newId } from '../core/months.js';
+import { FOCUS_MINUTES, DEFAULT_CHECKIN } from '../core/checkin.js';
 import { validateBackup, describeReplace, parseClaudeImport, describeProposal } from '../core/importer.js';
 import { weeklySummary } from '../core/summary.js';
 import { LINE_MODES, reminderBlock, habitForm } from './onboarding.js';
@@ -25,18 +26,20 @@ export function renderSettings(root, ctx) {
     const name = h('input', { class: 'input', value: hb.name, maxlength: 40 });
     const short = h('input', { class: 'input', value: hb.short, maxlength: MAX_SHORT, autocapitalize: 'characters' });
     const min = h('input', { class: 'input', value: hb.min, maxlength: 80 });
-    const note = h('input', { class: 'input', value: hb.note || '', maxlength: 140, placeholder: 'Ej.: después del almuerzo' });
+    const note = h('input', { class: 'input', value: hb.note || '', maxlength: 140, placeholder: 'Ej.: cuenta si son 25 min seguidos' });
+    const anchor = h('input', { class: 'input', value: hb.anchor || '', maxlength: MAX_ANCHOR, placeholder: 'Ej.: me siento a trabajar' });
     const area = h('select', { class: 'input' }, h('option', { value: '', selected: !hb.area }, 'Sin área'),
       (state.areas || []).map((a) => h('option', { value: a.id, selected: hb.area === a.id }, areaLabel(a))));
     const ok = await modal({
       title: 'Corregir hábito',
-      body: h('div', {}, h('p', { class: 'muted small' }, 'Solo corrige el texto, el área y la nota. Para cambiar el hábito, espera al cierre.'),
+      body: h('div', {}, h('p', { class: 'muted small' }, 'Solo corrige el texto, el ancla, el área y la nota. Para cambiar el hábito, espera al cierre.'),
         field('Nombre', name), field(`Etiqueta (≤ ${MAX_SHORT})`, short), field('Versión mínima', min),
+        field('Después de… (ancla, opcional)', anchor, 'Lo que dispara el hábito. Aparece debajo del hábito en Hoy.'),
         field('Área de vida', area), field('Nota (opcional)', note)),
       actions: [{ label: 'Cancelar', value: false }, { label: 'Guardar', value: true, kind: 'primary' }],
     });
     if (!ok) return;
-    try { editHabitText(state, mk, hb.id, { name: name.value, short: short.value, min: min.value, area: area.value || null, note: note.value }); } catch (e) { toast(cap(e.message), { duration: 3500 }); return; }
+    try { editHabitText(state, mk, hb.id, { name: name.value, short: short.value, min: min.value, area: area.value || null, note: note.value, anchor: anchor.value }); } catch (e) { toast(cap(e.message), { duration: 3500 }); return; }
     ctx.save();
     draw();
   }
@@ -256,7 +259,8 @@ export function renderSettings(root, ctx) {
       month && h('div', { class: 'section' }, h('h2', {}, `Hábitos de ${monthTitle(mk)}`),
         h('ul', { class: 'list' }, month.habits.map((hb) => h('li', {},
           h('span', { class: 'box full', 'data-c': hb.color, style: { width: '18px', height: '18px' } }),
-          h('span', { class: 'grow' }, h('b', {}, hb.short), ` ${hb.name}`, h('br'), h('span', { class: 'muted small' }, `Mín.: ${hb.min}${hb.area && areaById(state, hb.area) ? ` · ${areaLabel(areaById(state, hb.area))}` : ''}`)),
+          h('span', { class: 'grow' }, h('b', {}, hb.short), ` ${hb.name}`, h('br'), h('span', { class: 'muted small' }, `Mín.: ${hb.min}${hb.area && areaById(state, hb.area) ? ` · ${areaLabel(areaById(state, hb.area))}` : ''}`),
+            hb.anchor && [h('br'), h('span', { class: 'muted small' }, `Después de: ${hb.anchor}`)]),
           h('button', { class: 'btn', type: 'button', onClick: () => editHabit(hb) }, 'Corregir')))),
         h('p', { class: 'muted small', style: { marginTop: '8px' } }, 'Agregar o quitar hábitos se hace en el cierre de mes.'),
         !month.review && h('button', { class: 'linklike small', type: 'button', onClick: emergency }, 'Cambio de emergencia'),
@@ -276,6 +280,20 @@ export function renderSettings(root, ctx) {
         h('p', { class: 'muted small', style: { marginTop: '10px' } },
           persist === true ? 'Almacenamiento persistente: concedido.' : persist === false ? 'Almacenamiento persistente: no concedido. Exporta respaldos seguido.' : 'Almacenamiento persistente: sin confirmar.'),
       ),
+
+      h('div', { class: 'section' }, h('h2', {}, 'Registro extendido'),
+        h('p', { class: 'muted small' }, 'En Hoy: tarea #1, temporizador de foco, energía, ánimo, sueño, top 3 y "para mañana". Son los mismos datos del registro de WhatsApp y alimentan el Panel.'),
+        h('label', { class: 'check-line' }, h('input', { type: 'checkbox', checked: state.meta.checkin?.enabled !== false, onChange: (e) => {
+          state.meta.checkin = { ...DEFAULT_CHECKIN, ...(state.meta.checkin || {}), enabled: e.target.checked };
+          ctx.save();
+          draw();
+        } }), h('span', {}, 'Mostrar el registro extendido')),
+        state.meta.checkin?.enabled !== false && field('Duración del foco', h('div', { class: 'seg', role: 'group', 'aria-label': 'Duración del foco' },
+          FOCUS_MINUTES.map((m) => h('button', { type: 'button', 'aria-pressed': String((state.meta.checkin?.focusMinutes || 25) === m), onClick: () => {
+            state.meta.checkin = { ...DEFAULT_CHECKIN, ...(state.meta.checkin || {}), focusMinutes: m };
+            ctx.save();
+            draw();
+          } }, `${m} min`))))),
 
       h('div', { class: 'section' }, h('h2', {}, 'Sistema (modo juego)'),
         h('p', { class: 'muted small' }, 'Capa opcional inspirada en Solo Leveling: niveles, rango de cazador de E a S, misión diaria, jefe semanal, estadísticas por área y títulos. Todo sale de tu registro; no cambia cómo registras.'),

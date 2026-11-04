@@ -37,7 +37,7 @@ function applyProposal(p, prop, habits) {
     const d = p.decisions[e.habitId];
     if (!d) continue;
     if (e.min) d.min = e.min;
-    if (e.name || e.short || e.area) d.edit = { name: e.name, short: e.short, ...(e.area ? { area: e.area } : {}) };
+    if (e.name || e.short || e.area || e.anchor) d.edit = { name: e.name, short: e.short, ...(e.area ? { area: e.area } : {}), ...(e.anchor ? { anchor: e.anchor } : {}) };
     d.claude = true;
   }
   const room = MAX_HABITS - habits.length;

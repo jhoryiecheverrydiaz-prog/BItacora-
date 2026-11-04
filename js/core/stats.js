@@ -1,4 +1,5 @@
 import { monthKey, monthLength, dayKeyOf, parseKey, mondayIndex, weekStart, addDays } from './dates.js';
+import { logHasData } from './checkin.js';
 
 export const isDone = (v) => v === 'full' || v === 'min';
 export const isOff = (day) => day?.off === true;
@@ -7,7 +8,7 @@ export function isBlank(day) {
   if (!day) return true;
   const hasNote = typeof day.note === 'string' && day.note.trim() !== '';
   const hasCheck = day.checks && Object.values(day.checks).some(isDone);
-  return !hasNote && !hasCheck;
+  return !hasNote && !hasCheck && !logHasData(day.log);
 }
 
 // Último día del mes que ya cuenta (0 si el mes aún no empieza).

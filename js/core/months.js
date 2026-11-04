@@ -1,6 +1,7 @@
 import { todayKey, monthKey, parseKey, addDays, addMonths, diffDays, weekdayOf, isDateKey } from './dates.js';
 import { isBlank, isDone, isOff } from './stats.js';
 import { CURRENT_VERSION, DEFAULT_AREAS, DEFAULT_GAME } from './migrate.js';
+import { DEFAULT_CHECKIN } from './checkin.js';
 
 export const MAX_HABITS = 5;
 export const RECOMMENDED_START = 3;
@@ -11,6 +12,7 @@ export const MAX_SHORT = 6;
 export const LOOKBACK_DAYS = 7;
 export const BACKUP_EVERY_DAYS = 7;
 export const MAX_MONTHLY = 20;
+export const MAX_ANCHOR = 80; // "Después de…": lo que dispara el hábito
 // Paleta fija de 5, contraste AA sobre papel claro y oscuro (se ajusta en CSS por índice)
 export const PALETTE = ['c1', 'c2', 'c3', 'c4', 'c5'];
 
@@ -35,7 +37,7 @@ export function emptyState() {
     areas: structuredClone(DEFAULT_AREAS),
     years: {},
     months: {},
-    meta: { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null, game: { ...DEFAULT_GAME } },
+    meta: { lastOpenedDate: null, lastBackupAt: null, lastWeeklySentAt: null, persistGranted: null, closeSnoozedOn: null, onboardingDraft: null, pendingImport: null, game: { ...DEFAULT_GAME }, checkin: { ...DEFAULT_CHECKIN }, focus: null },
   };
 }
 
@@ -55,6 +57,7 @@ export function validateHabit(h) {
   if (typeof h.min !== 'string' || !h.min.trim()) return `"${h.name}": falta la versión mínima`;
   if (h.area !== undefined && h.area !== null && typeof h.area !== 'string') return `"${h.name}": área inválida`;
   if (h.note !== undefined && typeof h.note !== 'string') return `"${h.name}": la nota debe ser texto`;
+  if (h.anchor !== undefined && (typeof h.anchor !== 'string' || h.anchor.length > MAX_ANCHOR)) return `"${h.name}": el ancla debe ser texto de máx. ${MAX_ANCHOR}`;
   const t = validateTarget(h.target);
   return t ? `"${h.name}": ${t}` : null;
 }
@@ -78,6 +81,7 @@ export function makeHabit(input, colorIndex = 0) {
     target: copyTarget(input.target),
     area: input.area || null,
     ...(input.note ? { note: String(input.note).trim().slice(0, 140) } : {}),
+    ...(input.anchor ? { anchor: String(input.anchor).trim().slice(0, MAX_ANCHOR) } : {}),
     level: input.level || 1,
     color: input.color || PALETTE[colorIndex % PALETTE.length],
   };
@@ -227,6 +231,7 @@ function pickEditable(h) {
   for (const f of ['name', 'short', 'min']) if (typeof h[f] === 'string' && h[f].trim()) out[f] = f === 'short' ? h[f].trim().toUpperCase() : h[f].trim();
   if ('area' in h) out.area = h.area || null;
   if (typeof h.note === 'string') out.note = h.note.trim().slice(0, 140);
+  if (typeof h.anchor === 'string') out.anchor = h.anchor.trim().slice(0, MAX_ANCHOR);
   return out;
 }
 
@@ -245,7 +250,7 @@ function ensureDay(month, key) {
 
 function cleanupDay(month, key) {
   const d = month.days[key];
-  if (d && !d.note && !d.off && !Object.keys(d.checks).length) delete month.days[key];
+  if (d && !d.note && !d.off && !Object.keys(d.checks).length && !d.log) delete month.days[key];
 }
 
 // Día libre (descanso, enfermedad, viaje): no cuenta en lo esperado ni en días registrados.

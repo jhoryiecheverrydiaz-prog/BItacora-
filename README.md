@@ -24,6 +24,16 @@ Es una web app que se instala en el iPhone. Funciona sin internet y los datos se
 - **Días anteriores:** usa la tira de días para corregir hasta 7 días atrás. Más atrás, edítalos desde **Mes**.
 - **Cierre de mes:** el primer día de cada mes aparece el cierre. Ahí decides qué hábitos mantener, subir, bajar, quitar o reemplazar, y se crea el mes nuevo.
 
+## Registro extendido y Panel
+
+- **Tarea #1:** lo primero que vas a hacer hoy. Si ayer escribiste algo en "Para mañana", aparece como sugerencia.
+- **Foco:** temporizador de 15, 25 o 50 minutos (Ajustes). Si cierras la app, sigue contando; al volver se suma el foco.
+- **¿Cómo vas?:** energía y ánimo de 1 a 5, y la hora en que te acostaste y te levantaste (calcula las horas de sueño).
+- **Top 3 y cierre del día:** lo importante de hoy y qué queda para mañana.
+- **Ancla de cada hábito:** "Después de…", visible debajo del hábito. Se edita en Ajustes → Corregir.
+- **Panel:** promedios de 7, 30 o 90 días, gráfica día a día (hábitos, energía, ánimo), hallazgos (por ejemplo, tu energía los días con y sin cada hábito, o cuánto cumples tras dormir 7 h o más), días de la semana y últimos 6 meses.
+- Se puede ocultar en Ajustes → Registro extendido.
+
 ## Año y metas por área
 
 - **Año:** cumplimiento de cada mes, metas del año por área de vida (Fitness, Finanzas, Aventura, Superación personal, Relaciones, Trabajo; se pueden editar) y un plan de hábitos por área (diarios, semanales, mensuales). En el cierre de mes, el plan aparece como opciones para agregar.
@@ -37,7 +47,9 @@ Es una web app que se instala en el iPhone. Funciona sin internet y los datos se
 Inspirado en Solo Leveling. Se activa en **Ajustes → Sistema**. Aparece la pestaña **Sistema** con:
 
 - **Nivel y rango de cazador** (E → D → C → B → A → S). El rango S llega con alrededor de un año constante.
-- **Misión diaria:** tus hábitos de hoy con su recompensa. Completar todos da un bono.
+- **Misión diaria:** tus hábitos de hoy, el check-in y los focos, con su recompensa. Completar todos los hábitos da un bono.
+- **Misiones semanales:** Foco profundo (10 focos), Descanso (5 noches de 7 h o más), Bitácora completa (5 check-ins) y Rumbo claro (5 días con tarea #1).
+- **XP por semana:** gráfica de las últimas 8 semanas.
 - **Misión de recuperación:** si ayer quedó en blanco, registrar hoy da XP extra. Volver pesa más que no fallar.
 - **Jefe de la semana:** terminar la semana con 80 % o más.
 - **Estadísticas** (Fuerza, Agilidad, Vitalidad, Inteligencia, Percepción) que suben según el área de cada hábito.

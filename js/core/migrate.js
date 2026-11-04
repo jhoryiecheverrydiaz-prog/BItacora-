@@ -1,5 +1,7 @@
 // Migraciones del esquema. Cada cambio del modelo agrega una entrada vN → vN+1 y su test.
-export const CURRENT_VERSION = 3;
+import { DEFAULT_CHECKIN } from './checkin.js';
+
+export const CURRENT_VERSION = 4;
 
 // Áreas de vida por defecto (las de la hoja "Metas" del tracker en Sheets). Ids estables.
 export const DEFAULT_AREAS = [
@@ -27,6 +29,13 @@ export const MIGRATIONS = {
   2: (s) => {
     s.meta = { ...s.meta, game: { ...DEFAULT_GAME } };
     s.schemaVersion = 3;
+    return s;
+  },
+  // v4: registro extendido del día (day.log: energía, ánimo, sueño, tarea #1, top 3, cierre, focos),
+  // temporizador de foco (meta.focus) y su preferencia (meta.checkin). habit.anchor es opcional.
+  3: (s) => {
+    s.meta = { ...s.meta, checkin: { ...DEFAULT_CHECKIN }, focus: null };
+    s.schemaVersion = 4;
     return s;
   },
 };

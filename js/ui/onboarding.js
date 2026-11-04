@@ -295,6 +295,8 @@ export function habitForm(x, onRemove, onChange = () => {}) {
     areaSel,
     field('Versión mínima (obligatoria)', h('input', { class: 'input', value: x.min, maxlength: 80, placeholder: 'Ej.: 2 páginas',
       onInput: (e) => { x.min = e.target.value; onChange(); } }), 'Lo mínimo que cuenta como cumplido en un día malo.'),
+    field('Después de… (opcional)', h('input', { class: 'input', value: x.anchor || '', maxlength: 80, placeholder: 'Ej.: me levanto y me baño',
+      onInput: (e) => { x.anchor = e.target.value; onChange(); } }), 'El ancla: lo que dispara el hábito.'),
     onRemove && h('button', { class: 'linklike small', type: 'button', onClick: onRemove }, 'Quitar este hábito'),
   );
 }

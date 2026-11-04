@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { starter } from './fixtures.js';
 import { toggleCheck, setNote, applyClose } from '../js/core/months.js';
 import { weeklySummary, monthlySummary, weeklyRange } from '../js/core/summary.js';
+import { setLog } from '../js/core/checkin.js';
 
 function filled() {
   const st = starter();
@@ -82,4 +83,12 @@ test('línea del Sistema solo si está activo', async () => {
   st.meta.game.enabled = true;
   assert.match(gameLine(st, '2026-10-31'), /^Sistema: Nv\. \d+ · Rango [EDCBAS] · \d+ XP/);
   assert.match(weeklySummary(st, '2026-10-31'), /\nSistema: Nv\./);
+});
+
+test('resumen semanal incluye el registro extendido y las tareas #1', () => {
+  const st = starter();
+  setLog(st, '2026-10-28', { energy: 4, mood: 3, bed: '22:30', wake: '06:00', focus: 2, task1: 'Cotización' });
+  const txt = weeklySummary(st, '2026-10-29');
+  assert.match(txt, /Registro: energía 4,0 · ánimo 3,0 · sueño 7,5 h \(1 noches ≥ 7 h\) · focos 2 · tarea #1 1\/2 días/);
+  assert.match(txt, /Tareas #1: 28: Cotización/);
 });

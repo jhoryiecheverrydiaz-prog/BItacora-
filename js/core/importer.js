@@ -2,6 +2,7 @@ import { isDateKey, isMonthKey, monthKey, monthLength, parseKey } from './dates.
 import { validateHabitList, validateHabit, validateTarget, MAX_HABITS, MAX_GOALS, MAX_GOALS_STORED, MAX_SHORT, autoShort } from './months.js';
 import { validatePlan } from './plan.js';
 import { migrate } from './migrate.js';
+import { validateLog } from './checkin.js';
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isStr = (v) => typeof v === 'string';
@@ -34,6 +35,8 @@ function validateMonth(k, m, errors) {
     if (!isObj(d) || !isStr(d.note) || !isObj(d.checks)) { errors.push(`${p}.days.${dk} inválido`); continue; }
     for (const v of Object.values(d.checks)) if (v !== 'full' && v !== 'min') errors.push(`${p}.days.${dk}.checks: valor "${v}" inválido`);
     if (d.off !== undefined && d.off !== true) errors.push(`${p}.days.${dk}.off inválido`);
+    const le = validateLog(d.log);
+    if (le) errors.push(`${p}.days.${dk}.log: ${le}`);
     if (parseKey(dk).d < m.startDay) errors.push(`${p}.days.${dk} es anterior a startDay`);
   }
   if (m.review !== null && m.review !== undefined && !isObj(m.review)) errors.push(`${p}.review inválido`);
@@ -133,7 +136,7 @@ export function parseClaudeImport(input, habits, areas = []) {
         const found = habits.find((x) => x.id.toUpperCase() === ref || x.short.toUpperCase() === ref);
         if (!found) return errors.push(`${p}.keepId "${h.keepId}" no coincide con ningún hábito actual`);
         const e = {};
-        for (const f of ['min', 'name', 'short']) {
+        for (const f of ['min', 'name', 'short', 'anchor']) {
           if (h[f] === undefined) continue;
           if (!isStr(h[f]) || !h[f].trim()) return errors.push(`${p}.${f} debe ser texto no vacío`);
           e[f] = h[f].trim();
@@ -143,6 +146,7 @@ export function parseClaudeImport(input, habits, areas = []) {
         edits.push({ habitId: found.id, ...e });
       } else {
         const cand = { name: h.name, short: isStr(h.short) && h.short.trim() ? h.short.trim().toUpperCase() : autoShort(h.name), min: h.min, target: h.target ?? { type: 'daily' } };
+        if (isStr(h.anchor) && h.anchor.trim()) cand.anchor = h.anchor.trim();
         if (h.area !== undefined) { const a = areaRef(h.area); if (!a) return errors.push(`${p}.area "${h.area}" no existe`); cand.area = a; }
         const t = validateTarget(cand.target);
         const e = validateHabit(cand);
